@@ -1,0 +1,10 @@
+{
+  "name": "travelguesser",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "web-push": "^3.6.7"
+  }
+}
