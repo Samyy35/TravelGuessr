@@ -425,7 +425,7 @@
   <header>
     <div class="brand">
       <div class="brand-mark">🧭</div>
-      <div><h1>Sam'Travail</h1><div class="tag">Ta recherche d'emploi, en mode pilote</div></div>
+      <div><h1>Sam'Travail</h1><div class="tag">Ta recherche d'emploi, en mode pilote <span style="opacity:.4;font-size:11px;">v7</span></div></div>
     </div>
     <div class="greeting">
       <div class="hi" id="greet" onclick="askName()" title="Changer mon prénom" style="cursor:pointer;">Bienvenue 👋</div>
@@ -1264,7 +1264,7 @@
   function openAddLinks(prefillUrl, prefillTitle){
     const origin=window.location.origin;
     // Le bookmarklet capture l'URL ET le titre de la page (depuis TON navigateur = pas de blocage)
-    const bookmarklet="javascript:(function(){var t=document.title;var h=document.querySelector('h1');if(h)t=h.innerText||t;window.open('"+origin+"/?addUrl='+encodeURIComponent(location.href)+'&addTitle='+encodeURIComponent(t),'_blank');})();";
+    const bookmarklet="javascript:(function(){var ms=document.getElementsByTagName('meta');function M(p){for(var i=0;i<ms.length;i++){var m=ms[i];if((m.getAttribute('property')||m.getAttribute('name'))===p)return m.content||'';}return '';}var d={t:'',e:'',l:'',c:''};try{var s=document.getElementsByTagName('script');for(var i=0;i<s.length;i++){if((s[i].type||'').indexOf('ld+json')<0)continue;var j=JSON.parse(s[i].textContent);var a=Array.isArray(j)?j:(j['@graph']?j['@graph']:[j]);for(var k=0;k<a.length;k++){var o=a[k];if(!o)continue;var ty=o['@type'];if(ty==='JobPosting'||(Array.isArray(ty)&&ty.indexOf('JobPosting')>=0)){d.t=o.title||o.name||'';var hg=o.hiringOrganization;d.e=typeof hg==='string'?hg:(hg&&hg.name?hg.name:'');var L=o.jobLocation;if(Array.isArray(L))L=L[0];if(L&&L.address)d.l=L.address.addressLocality||'';if(o.employmentType)d.c=''+o.employmentType;break;}}if(d.t)break;}}catch(e){}if(!d.t){var h1=document.querySelector('h1');d.t=M('og:title')||(h1&&(h1.innerText||h1.textContent)||'').trim()||document.title||'';}var u='"+origin+"/?addUrl='+encodeURIComponent(location.href)+'&addTitle='+encodeURIComponent(d.t)+'&addEnt='+encodeURIComponent(d.e)+'&addLieu='+encodeURIComponent(d.l)+'&addCt='+encodeURIComponent(d.c);window.open(u,'_blank');})();";
     const box=document.getElementById("modalBox");
     box.innerHTML=`
       <div class="modal-head"><h3>➕ Ajouter des offres par lien</h3><button class="x" onclick="closeModal()">✕</button></div>
@@ -1281,7 +1281,7 @@
       </div>
       <div id="linksPreview"></div>`;
     document.getElementById("modalBg").classList.add("open");
-    if(prefillUrl){ window._prefillTitle=prefillTitle||""; setTimeout(fetchLinkInfos,300); }
+    if(prefillUrl){ setTimeout(fetchLinkInfos,300); }
   }
 
   async function fetchLinkInfos(){
@@ -1303,14 +1303,21 @@
       }catch(e){}
       offer.id="manual_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
       offer.dateAjout=new Date().toISOString();
-      // Si l'extraction serveur n'a rien donné mais que le bookmarklet a capturé un titre -> on l'utilise
-      if((!offer.titre || quality==="empty") && window._prefillTitle){
-        offer.titre=window._prefillTitle; if(quality==="empty")quality="partial";
+      // Fusion avec les infos captées par le bookmarklet (priorité au serveur s'il a trouvé, sinon bookmarklet)
+      const pf=window._prefill;
+      if(pf){
+        if(!offer.titre && pf.titre) offer.titre=pf.titre;
+        if(!offer.entreprise && pf.entreprise) offer.entreprise=pf.entreprise;
+        if(!offer.lieu && pf.lieu) offer.lieu=pf.lieu;
+        if(!offer.typeContrat && pf.typeContrat) offer.typeContrat=pf.typeContrat;
+        // recalcule la qualité selon ce qu'on a au final
+        if(offer.entreprise && offer.titre) quality="full";
+        else if(offer.titre) quality= quality==="empty"?"partial":quality;
       }
       offer._quality=quality;
       addLinksData.push(offer);
     }
-    window._prefillTitle="";
+    window._prefill=null;
     btn.disabled=false;btn.textContent="🔎 Récupérer les infos";
     renderLinksPreview();
   }
@@ -1738,9 +1745,12 @@
     const nom=userName?(" "+userName):"";
     document.getElementById("greet").textContent=(h<12?"Bonjour":h<18?"Bon après-midi":"Bonsoir")+nom+" 👋";
   }
-  async function loadProfil(){
-    if(sb){try{const {data}=await sb.from("parametres").select("valeur").eq("cle","profil").maybeSingle();if(data&&data.valeur&&data.valeur.prenom)userName=data.valeur.prenom;}catch(e){}}
-    if(!userName){ askName(); }
+  async function loadProfil(skipAsk){
+    // 1) cache local instantané (évite de redemander même si Supabase est lent/indispo)
+    try{const ls=localStorage.getItem("st_name");if(ls)userName=ls;}catch(e){}
+    // 2) sync Supabase (source de vérité multi-appareils)
+    if(sb){try{const {data}=await sb.from("parametres").select("valeur").eq("cle","profil").maybeSingle();if(data&&data.valeur&&data.valeur.prenom){userName=data.valeur.prenom;try{localStorage.setItem("st_name",userName);}catch(e){}}}catch(e){}}
+    if(!userName && !skipAsk){ askName(); }
     else initDate();
   }
   function askName(){
@@ -1756,6 +1766,7 @@
   async function saveName(){
     const v=(document.getElementById("nameInput").value||"").trim();
     userName=v||"";
+    try{localStorage.setItem("st_name",userName);}catch(e){}
     if(sb){try{await sb.from("parametres").upsert({cle:"profil",valeur:{prenom:userName},updated_at:new Date().toISOString()},{onConflict:"cle"});}catch(e){}}
     closeModal();initDate();
   }
@@ -1789,17 +1800,31 @@
   }
   (async function init(){
     initDate();renderRoadmap();
-    await loadAll();loadNotes();loadStreak();loadTheme();loadProfil();refreshAll();
-    // Bookmarklet : si ?addUrl=... -> ouvre directement l'ajout par lien
     const params=new URLSearchParams(window.location.search);
     const addUrl=params.get("addUrl");
+    await loadAll();loadNotes();loadStreak();loadTheme();
+    await loadProfil(!!addUrl);  // si on arrive via bookmarklet, on ne demande pas le nom maintenant
+    refreshAll();
+    // Bookmarklet : si ?addUrl=... -> ouvre directement l'ajout par lien
     if(addUrl){
-      openAddLinks(addUrl, params.get("addTitle")||"");
+      window._prefill={
+        titre:params.get("addTitle")||"",
+        entreprise:params.get("addEnt")||"",
+        lieu:params.get("addLieu")||"",
+        typeContrat:mapEmp(params.get("addCt")||"")
+      };
+      openAddLinks(addUrl);
       history.replaceState({},"",window.location.pathname);
     }else{
       doSearch();
     }
   })();
+  // map des types d'emploi schema.org -> libellé FR
+  function mapEmp(t){
+    if(!t)return "";
+    const m={FULL_TIME:"Temps plein",PART_TIME:"Temps partiel",CONTRACTOR:"Freelance",TEMPORARY:"CDD / Intérim",INTERN:"Stage"};
+    return m[t.toUpperCase()]||t;
+  }
 </script>
 </body>
 </html>
