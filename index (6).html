@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sam'Travail — ta recherche d'emploi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Thème clair épuré (Apple-like) — par défaut */
+    --bg:#f5f5f7; --bg-2:#ececef; --surface:#ffffff; --surface-2:#f5f5f7; --surface-3:#e8e8ed;
+    --border:#e4e4e9; --border-light:#d2d2d7;
+    --text:#1d1d1f; --text-dim:#6e6e73; --text-mute:#a1a1a6;
+    --accent:#0071e3; --accent-h:#0077ed; --accent-soft:rgba(0,113,227,.10);
+    --green:#34c759; --green-soft:rgba(52,199,89,.12);
+    --orange:#ff9500; --orange-soft:rgba(255,149,0,.12);
+    --red:#ff3b30; --red-soft:rgba(255,59,48,.12);
+    --purple:#af52de; --purple-soft:rgba(175,82,222,.12);
+    --cyan:#32ade6; --cyan-soft:rgba(50,173,230,.12);
+    --pink:#ff2d55; --gold:#f5a623;
+    --radius:16px; --radius-sm:11px;
+    --display:'Fraunces',Georgia,serif; --font:'Outfit',system-ui,sans-serif;
+    --shadow:0 2px 14px rgba(0,0,0,.06); --shadow-lg:0 16px 48px rgba(0,0,0,.13);
+    --overlay:rgba(0,0,0,.30);
+    --glow:rgba(0,113,227,.25);
+  }
+  [data-theme="dark"]{
+    --bg:#0b0d12; --bg-2:#11141c; --surface:#171b24; --surface-2:#1f2430; --surface-3:#2a3040;
+    --border:#272d3a; --border-light:#38414f;
+    --text:#eef1f7; --text-dim:#9aa3b6; --text-mute:#626a7e;
+    --accent:#5b8def; --accent-h:#73a0f5; --accent-soft:rgba(91,141,239,.14);
+    --green:#22c55e; --green-soft:rgba(34,197,94,.14);
+    --orange:#f59e0b; --orange-soft:rgba(245,158,11,.14);
+    --red:#f0556d; --red-soft:rgba(240,85,109,.14);
+    --purple:#a87ffb; --purple-soft:rgba(168,127,251,.14);
+    --cyan:#22d3ee; --cyan-soft:rgba(34,211,238,.14);
+    --pink:#f472b6; --gold:#fbbf24;
+    --shadow:0 4px 24px rgba(0,0,0,.30); --shadow-lg:0 24px 64px rgba(0,0,0,.55);
+    --overlay:rgba(0,0,0,.65);
+    --glow:rgba(91,141,239,.4);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.55;min-height:100vh;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;background:
+    radial-gradient(1000px 500px at 85% -5%,var(--accent-soft),transparent),
+    radial-gradient(800px 500px at 5% 100%,var(--purple-soft),transparent);
+    pointer-events:none;z-index:0;opacity:.7;}
+  .wrap{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:24px 22px 90px;}
+  ::-webkit-scrollbar{width:10px;height:10px;} ::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:6px;}
+
+  /* HEADER */
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:13px;}
+  .brand-mark{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--purple));display:grid;place-items:center;font-size:23px;box-shadow:0 6px 20px var(--glow);}
+  .theme-toggle{width:40px;height:40px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;font-size:17px;transition:.15s;flex-shrink:0;}
+  .theme-toggle:hover{border-color:var(--accent);transform:scale(1.05);}
+  /* Bandeau orientation 3 étapes */
+  .flow-strip{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin-bottom:20px;}
+  .flow-step{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:8px 16px 8px 8px;cursor:pointer;transition:.15s;font-family:var(--font);}
+  .flow-step:hover{border-color:var(--accent);transform:translateY(-1px);}
+  .flow-num{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0;}
+  .flow-txt{font-size:13.5px;color:var(--text-dim);} .flow-txt b{color:var(--text);font-weight:600;}
+  .flow-arrow{color:var(--text-mute);font-size:15px;}
+  @media(max-width:640px){.flow-arrow{display:none;}.flow-strip{gap:8px;}.flow-step{flex:1;min-width:0;}}
+  /* États vides qui guident */
+  .empty-cta{text-align:center;padding:48px 24px;background:var(--surface);border:1px dashed var(--border-light);border-radius:18px;}
+  .empty-ico{font-size:40px;margin-bottom:12px;opacity:.9;}
+  .empty-h{font-family:var(--display);font-size:20px;font-weight:600;margin-bottom:8px;}
+  .empty-p{font-size:14px;color:var(--text-dim);max-width:440px;margin:0 auto 20px;line-height:1.6;}
+  .empty-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .brand h1{font-family:var(--display);font-size:27px;font-weight:600;letter-spacing:-.5px;}
+  .brand .tag{color:var(--text-dim);font-size:13px;margin-top:-2px;}
+  .greeting{text-align:right;}
+  .greeting .hi{font-family:var(--display);font-size:18px;font-weight:500;}
+  .greeting .date{color:var(--text-mute);font-size:12px;}
+
+  /* DECK DU JOUR (cockpit) */
+  .cockpit{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;position:relative;overflow:hidden;box-shadow:var(--shadow);}
+  .cockpit::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;background:radial-gradient(circle,var(--accent-soft),transparent 70%);}
+  .cockpit-title{font-size:12.5px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:7px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;}
+  .todo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;position:relative;z-index:1;}
+  .todo{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:4px;}
+  .todo:hover{border-color:var(--border-light);box-shadow:var(--shadow);transform:translateY(-1px);}
+  .todo .n{font-family:var(--display);font-size:30px;font-weight:600;line-height:1;color:var(--text);}
+  .todo .t{font-size:12.5px;color:var(--text-dim);font-weight:500;}
+  /* petit point coloré discret au lieu d'un chiffre coloré */
+  .todo .t::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:middle;background:var(--text-mute);}
+  .todo.blue .t::before{background:var(--accent);} .todo.orange .t::before{background:var(--orange);} .todo.purple .t::before{background:var(--purple);} .todo.green .t::before{background:var(--green);} .todo.red .t::before{background:var(--red);}
+  /* le chiffre devient discret quand c'est 0 */
+  .todo.zero .n{color:var(--text-mute);opacity:.5;}
+
+  /* TIMELINE repliable */
+  .timeline-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow);}
+  .timeline-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;user-select:none;gap:14px;flex-wrap:wrap;}
+  .timeline-head:hover{background:var(--surface-2);}
+  .tl-title{font-family:var(--display);font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:0;}
+  .tl-next{display:inline-flex;gap:7px;flex-wrap:wrap;}
+  .tl-mini{font-family:var(--font);font-size:11.5px;font-weight:500;background:var(--surface-2);padding:3px 10px;border-radius:999px;white-space:nowrap;}
+  .tl-mini b{font-weight:700;}
+  .tl-toggle{display:flex;align-items:center;gap:12px;}
+  .tl-chevron{font-size:14px;color:var(--text-dim);transition:transform .25s;}
+  .timeline-wrap.open .tl-chevron{transform:rotate(180deg);}
+  .timeline-body{max-height:0;overflow:hidden;transition:max-height .35s ease;}
+  .timeline-wrap.open .timeline-body{max-height:480px;}
+
+  /* La frise — track plus haut pour séparer cartes et ligne */
+  .frise{position:relative;padding:24px 30px 30px;overflow-x:auto;overflow-y:hidden;}
+  .frise-track{position:relative;min-width:100%;height:340px;}
+  .frise-line{position:absolute;top:170px;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:3px;}
+  .frise-today{position:absolute;top:156px;width:2px;height:31px;background:var(--gold);z-index:4;}
+  .frise-today::after{content:"aujourd'hui";position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--gold);white-space:nowrap;font-weight:700;}
+  .jalon{position:absolute;transform:translateX(-50%);width:124px;z-index:2;}
+  .jalon-card{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;width:124px;text-align:center;cursor:pointer;transition:.15s;}
+  .jalon-card:hover{border-color:currentColor;transform:translateY(-2px);}
+  .jalon-icon{font-size:17px;}
+  .jalon-label{font-size:11px;font-weight:600;line-height:1.2;margin-top:3px;color:var(--text);}
+  .jalon-date{font-size:10px;color:var(--text-dim);margin-top:2px;}
+  .jalon-days{font-size:10.5px;font-weight:700;margin-top:1px;}
+  .jalon-dot{width:16px;height:16px;border-radius:50%;border:3px solid var(--bg-2);box-shadow:0 0 0 2px currentColor;background:var(--bg-2);position:absolute;left:50%;transform:translateX(-50%);}
+  .jalon-connector{position:absolute;left:50%;transform:translateX(-50%);width:2px;background:var(--border);}
+  /* HAUT : carte en haut, connecteur descend vers la ligne, dot sur la ligne */
+  .jalon.up{top:0;}
+  .jalon.up .jalon-card{margin-top:0;}
+  .jalon.up .jalon-connector{top:92px;height:76px;}
+  .jalon.up .jalon-dot{top:162px;}
+  /* BAS : dot sur la ligne, connecteur descend, carte en bas */
+  .jalon.down{top:178px;}
+  .jalon.down .jalon-dot{top:-16px;}
+  .jalon.down .jalon-connector{top:-8px;height:70px;}
+  .jalon.down .jalon-card{margin-top:64px;}
+  .jalon.fixed .jalon-card{background:var(--surface);}
+  .jalon.past{opacity:.45;}
+  .frise-empty{text-align:center;color:var(--text-dim);font-size:13px;padding:30px;}
+
+  /* NAV */
+  .nav{display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:5px;flex-wrap:wrap;}
+  .nav-tab{flex:1;background:transparent;border:none;color:var(--text-dim);padding:11px 14px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--font);transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;white-space:nowrap;}
+  .nav-tab:hover{color:var(--text);background:var(--surface-2);}
+  .nav-tab.active{color:#fff;background:var(--accent);box-shadow:0 4px 14px var(--glow);}
+  .nav-tab .badge{background:rgba(255,255,255,.2);border-radius:999px;padding:0 7px;font-size:11px;font-weight:700;}
+  .nav-tab:not(.active) .badge{background:var(--surface-3);}
+
+  .view{display:none;animation:fade .3s;} .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* SECTION HEAD */
+  .sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:14px;flex-wrap:wrap;}
+  .sec-head h2{font-family:var(--display);font-size:21px;font-weight:600;}
+  .sec-head .sub{font-size:13px;color:var(--text-dim);}
+
+  /* BUTTONS */
+  .btn{background:var(--accent);color:#fff;border:none;padding:11px 20px;border-radius:11px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;font-family:var(--font);white-space:nowrap;}
+  .btn:hover{background:var(--accent-h);transform:translateY(-1px);} .btn:active{transform:none;} .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.sm{padding:8px 14px;font-size:12.5px;}
+  .btn.ghost{background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--text);background:var(--surface-2);}
+  .btn.danger{background:transparent;border:1px solid var(--red);color:var(--red);}
+  .btn.danger:hover{background:var(--red);color:#fff;}
+
+  /* SEARCH */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;}
+  .row{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;}
+  .field{flex:1;min-width:150px;} .field.wide{flex:2;}
+  .field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
+  .field input,.field select,.field textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:11px 13px;border-radius:10px;font-size:14px;font-family:var(--font);outline:none;transition:.15s;}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .field input::placeholder{color:var(--text-mute);}
+  textarea{resize:vertical;min-height:62px;line-height:1.5;}
+
+  .hint{font-size:12px;color:var(--text-dim);margin-top:10px;} .hint b{color:var(--accent);}
+  /* Toolbar grille : regroupement + cacher vues */
+  .grid-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  .group-by{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .gb-label{font-size:12.5px;color:var(--text-dim);}
+  .gp-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .gp{font-size:12.5px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);cursor:pointer;background:var(--surface);transition:.15s;}
+  .gp:hover{border-color:var(--accent);}
+  .gp.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  .hide-seen-btn{font-size:12.5px;padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:.15s;}
+  .hide-seen-btn:hover{border-color:var(--accent);}
+  .hide-seen-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  /* Groupes pliables */
+  .grid-group{margin-bottom:18px;}
+  .grid-group-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer;user-select:none;margin-bottom:10px;}
+  .grid-group-head:hover{background:var(--surface-2);}
+  .gg-title{font-family:var(--display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .gg-count{font-size:12px;font-weight:600;color:var(--text-dim);background:var(--surface-2);padding:2px 9px;border-radius:999px;}
+  .gg-new{font-size:11px;font-weight:700;color:#fff;background:var(--green);padding:2px 9px;border-radius:999px;}
+  .gg-chevron{font-size:13px;color:var(--text-dim);transition:transform .2s;}
+  .grid-group .grid.collapsed{display:none;}
+  .grid-group:has(.grid.collapsed) .gg-chevron{transform:rotate(-90deg);}
+  /* Badge NOUVEAU */
+  .new-chip{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important;font-weight:700;}
+  .add-chip{background:var(--purple)!important;color:#fff!important;border-color:var(--purple)!important;font-weight:600;}
+  /* Badge score de match */
+  .match-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;}
+  .match-badge.m-high{background:var(--green);color:#fff;}
+  .match-badge.m-mid{background:var(--orange);color:#fff;}
+  .match-badge.m-low{background:var(--surface-3);color:var(--text-dim);}
+  /* Modal critères */
+  .crit-block{margin-bottom:16px;}
+  .crit-label{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text);}
+  .crit-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;}
+  .crit-stars{display:flex;gap:4px;}
+  .crit-stars .star{cursor:pointer;font-size:16px;color:var(--surface-3);transition:.1s;user-select:none;}
+  .crit-stars .star.on{color:var(--gold);}
+  .crit-stars .star.zero{font-size:13px;color:var(--text-mute);}
+  .crit-in{width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:var(--font);font-size:13px;}
+  .crit-in:focus{outline:none;border-color:var(--accent);}
+  .crit-hint{font-size:11px;color:var(--text-mute);margin-top:5px;}
+  /* Panneau relances */
+  .relances-box{background:linear-gradient(135deg,rgba(245,158,11,.08),var(--surface));border:1px solid var(--orange);border-radius:14px;padding:16px;margin-bottom:20px;}
+  .relances-head{font-family:var(--display);font-size:16px;font-weight:600;margin-bottom:12px;}
+  .rel-sub{font-family:var(--font);font-size:12px;color:var(--text-dim);font-weight:400;}
+  .rel-wave{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:10px;}
+  .rel-wave-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;flex-wrap:wrap;}
+  .rel-wave-title{font-size:13px;font-weight:600;color:var(--text);}
+  .rel-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px;gap:10px;}
+  .rel-item-info{flex:1;min-width:0;}
+  .rel-days{font-size:11px;color:var(--orange);font-weight:700;margin-left:6px;}
+  .rel-item-actions{display:flex;align-items:center;gap:8px;}
+  .rel-link{font-size:11.5px;color:var(--accent);text-decoration:none;}
+  .rel-done{background:none;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:13px;padding:2px 8px;}
+  .rel-done:hover{background:var(--green);border-color:var(--green);}
+  /* Streak */
+  .streak{margin-top:6px;font-size:12px;background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(240,85,109,.12));border:1px solid rgba(245,158,11,.4);border-radius:999px;padding:4px 12px;align-items:center;gap:6px;}
+  .streak b{color:var(--gold);} .streak-best{color:var(--text-dim);font-size:11px;margin-left:4px;}
+  /* Stats / Bilan */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center;box-shadow:var(--shadow);}
+  .stat-n{font-family:var(--display);font-size:30px;font-weight:600;color:var(--text);}
+  .stat-l{font-size:12px;color:var(--text-dim);margin-top:4px;}
+  .bilan-block{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px;}
+  .bilan-h{font-family:var(--display);font-size:16px;font-weight:600;margin-bottom:14px;}
+  .bilan-note{font-size:12px;color:var(--text-dim);margin-top:10px;}
+  .funnel{display:flex;flex-direction:column;gap:9px;}
+  .funnel-row{display:flex;align-items:center;gap:12px;}
+  .funnel-l{font-size:12.5px;width:110px;flex-shrink:0;color:var(--text);}
+  .funnel-bar-wrap{flex:1;background:var(--surface-2);border-radius:8px;overflow:hidden;}
+  .funnel-bar{height:26px;border-radius:8px;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;color:#fff;font-size:12px;font-weight:700;min-width:24px;transition:width .4s;}
+  /* Checklist modal + carte */
+  .modal-checklist{display:flex;flex-direction:column;gap:7px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:11px;}
+  .chk-item{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;color:var(--text);}
+  .chk-item input{width:16px;height:16px;accent-color:var(--accent);}
+  .kchk{font-size:10.5px;color:var(--green);font-weight:700;margin-left:6px;}
+  /* Tags */
+  .tag-chip{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(168,127,251,.18);color:#c4a9ff;border:1px solid rgba(168,127,251,.4);cursor:pointer;}
+  .tag-chip:hover{background:rgba(168,127,251,.3);}
+  .tag-add{font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--text-dim);border:1px dashed var(--border);cursor:pointer;}
+  .tag-add:hover{border-color:var(--accent);color:var(--accent);}
+  /* Comparateur */
+  .compare-bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);border-radius:999px;padding:10px 18px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-lg);z-index:40;font-size:13px;}
+  .compare-table-wrap{overflow-x:auto;}
+  .compare-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .compare-table th,.compare-table td{border:1px solid var(--border);padding:9px 11px;text-align:left;vertical-align:top;}
+  .compare-table th{background:var(--surface-2);font-weight:600;}
+  .compare-table .ct-label{background:var(--surface-2);font-weight:600;white-space:nowrap;}
+  /* Modal ajout par lien */
+  .modal-sub{font-size:13px;color:var(--text-dim);margin:0 0 14px;line-height:1.5;}
+  .links-area{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-family:var(--font);font-size:13px;resize:vertical;line-height:1.6;}
+  .links-area:focus{outline:none;border-color:var(--accent);}
+  .modal-actions{display:flex;flex-direction:column;gap:12px;margin-top:14px;}
+  .bookmarklet-help{font-size:12.5px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;}
+  .bookmarklet-help summary{cursor:pointer;font-weight:600;color:var(--text);}
+  .bookmarklet-help p{margin:8px 0;line-height:1.5;}
+  .bookmarklet-btn{display:inline-block;background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;cursor:grab;font-size:13px;}
+  .bm-note{font-size:11px;color:var(--text-mute);}
+  .preview-head{font-size:13px;font-weight:600;margin:18px 0 10px;color:var(--text);}
+  .preview-card{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;}
+  .pc-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .pc-src{font-size:11px;color:var(--text-dim);flex:1;}
+  .pc-del{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;}
+  .pc-del:hover{background:var(--red);color:#fff;}
+  .q-chip{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;}
+  .q-full{background:var(--green);color:#fff;} .q-partial{background:var(--orange);color:#fff;} .q-empty{background:var(--surface);color:var(--text-dim);border:1px solid var(--border);}
+  .pc-in{width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;margin-bottom:7px;}
+  .pc-in:focus{outline:none;border-color:var(--accent);}
+  .pc-title{font-weight:600;font-size:13.5px;}
+  .pc-row{display:flex;gap:7px;} .pc-row .pc-in{flex:1;}
+  .pc-link{font-size:11.5px;color:var(--accent);text-decoration:none;}
+  .btn-validate{width:100%;margin-top:6px;}
+  .hint code{background:var(--surface-2);padding:1px 6px;border-radius:5px;font-size:11.5px;color:var(--text);}
+
+  /* SEGMENTED toggle swipe/grille */
+  .segmented{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px;}
+  .seg{padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-dim);cursor:pointer;transition:.15s;border:none;background:transparent;font-family:var(--font);}
+  .seg.active{background:var(--accent);color:#fff;}
+
+  /* PILLS */
+  .pills{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap;}
+  .pill{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);padding:7px 14px;border-radius:999px;font-size:12.5px;cursor:pointer;transition:.15s;font-weight:600;}
+  .pill:hover{border-color:var(--accent);color:var(--text);} .pill.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .pill .count{margin-left:5px;opacity:.8;font-size:11px;}
+  .info{color:var(--text-dim);font-size:13px;margin-bottom:14px;}
+
+  /* ===== SWIPE DECK ===== */
+  .swipe-stage{display:flex;flex-direction:column;align-items:center;padding:8px 0 0;}
+  .swipe-progress{width:100%;max-width:480px;margin-bottom:16px;}
+  .swipe-progress .bar{height:7px;background:var(--surface-2);border-radius:999px;overflow:hidden;}
+  .swipe-progress .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:999px;transition:width .3s;}
+  .swipe-progress .lbl{font-size:12px;color:var(--text-dim);margin-top:7px;text-align:center;}
+  .swipe-card-wrap{position:relative;width:100%;max-width:480px;height:560px;}
+  .swipe-card{position:absolute;inset:0;background:var(--surface);border:1px solid var(--border-light);border-radius:24px;padding:26px;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);transition:transform .35s cubic-bezier(.2,.8,.3,1),opacity .35s;overflow:hidden;}
+  .swipe-card.gone-left{transform:translateX(-130%) rotate(-18deg);opacity:0;}
+  .swipe-card.gone-right{transform:translateX(130%) rotate(18deg);opacity:0;}
+  .swipe-card.gone-up{transform:translateY(-130%) scale(.9);opacity:0;}
+  .swipe-card.gone-down{transform:translateY(60%);opacity:0;}
+  .swipe-card .sector-tag{align-self:flex-start;padding:5px 13px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:14px;}
+  .swipe-card h3{font-family:var(--display);font-size:25px;font-weight:600;line-height:1.2;margin-bottom:8px;}
+  .swipe-card .company{font-size:16px;color:var(--accent);font-weight:600;margin-bottom:16px;}
+  .swipe-card .facts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+  .fact{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12.5px;display:flex;align-items:center;gap:6px;}
+  .fact .fl{color:var(--text-mute);} .fact .fv{color:var(--text);font-weight:600;}
+  .swipe-card .desc{font-size:13.5px;color:var(--text-dim);line-height:1.6;flex:1;overflow-y:auto;padding-right:4px;}
+  .swipe-card .links{display:flex;gap:9px;margin-top:14px;}
+  .swipe-card .links a{flex:1;text-align:center;padding:9px;border-radius:10px;border:1px solid var(--border-light);color:var(--text-dim);text-decoration:none;font-size:12.5px;font-weight:600;transition:.15s;}
+  .swipe-card .links a:hover{border-color:var(--accent);color:var(--accent);}
+  .swipe-badge{position:absolute;top:26px;font-family:var(--display);font-size:30px;font-weight:700;padding:6px 18px;border-radius:12px;border:3px solid;opacity:0;transition:opacity .15s;pointer-events:none;}
+  .swipe-badge.like{right:24px;color:var(--green);border-color:var(--green);transform:rotate(12deg);}
+  .swipe-badge.nope{left:24px;color:var(--red);border-color:var(--red);transform:rotate(-12deg);}
+  .swipe-badge.show{opacity:1;}
+
+  .swipe-actions{display:flex;gap:14px;align-items:center;justify-content:center;margin-top:22px;}
+  .sa{width:60px;height:60px;border-radius:50%;border:2px solid var(--border-light);background:var(--surface);display:grid;place-items:center;font-size:24px;cursor:pointer;transition:.18s;}
+  .sa:hover{transform:scale(1.12);}
+  .sa.nope:hover{border-color:var(--red);background:var(--red-soft);}
+  .sa.later{width:50px;height:50px;font-size:20px;} .sa.later:hover{border-color:var(--cyan);background:var(--cyan-soft);}
+  .sa.like:hover{border-color:var(--green);background:var(--green-soft);}
+  .sa.super{width:54px;height:54px;font-size:22px;background:linear-gradient(135deg,var(--gold),var(--orange));border-color:transparent;} .sa.super:hover{box-shadow:0 0 24px rgba(251,191,36,.6);}
+  .swipe-hint{font-size:12px;color:var(--text-mute);text-align:center;margin-top:14px;}
+  .swipe-done{text-align:center;padding:60px 20px;}
+  .swipe-done .big{font-family:var(--display);font-size:30px;font-weight:600;margin-bottom:10px;}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:9px;transition:.15s;position:relative;overflow:hidden;}
+  .card:hover{border-color:var(--border-light);transform:translateY(-2px);box-shadow:var(--shadow);}
+  .card-bar{position:absolute;left:0;top:0;bottom:0;width:4px;background:transparent;}
+  .card.s-apostuler .card-bar{background:var(--green);} .card.s-super .card-bar{background:linear-gradient(var(--gold),var(--orange));}
+  .card.s-reflexion .card-bar{background:var(--cyan);} .card.s-postule .card-bar{background:var(--purple);}
+  .card.s-ignore{opacity:.5;} .card.s-ignore .card-bar{background:var(--text-mute);}
+  .c-title{font-size:15.5px;font-weight:700;line-height:1.35;padding-left:7px;}
+  .c-sub{font-size:13px;color:var(--accent);font-weight:600;padding-left:7px;}
+  .c-meta{display:flex;flex-wrap:wrap;gap:6px;padding-left:7px;}
+  .chip{font-size:11px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:3px 9px;border-radius:999px;}
+  .chip.loc{color:var(--text);} .chip.haute{color:var(--orange);border-color:var(--orange);} .chip.green{color:var(--green);border-color:var(--green);}
+  .c-desc{font-size:12.5px;color:var(--text-dim);padding-left:7px;flex:1;}
+  .c-date{font-size:11px;color:var(--text-mute);padding-left:7px;}
+  .c-actions{display:flex;gap:6px;flex-wrap:wrap;padding-left:7px;margin-top:3px;}
+  .mini{flex:1;min-width:46px;font-size:14px;padding:7px 5px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;transition:.12s;font-family:var(--font);}
+  .mini:hover{border-color:var(--accent);transform:translateY(-1px);}
+  .mini.a-super{background:linear-gradient(135deg,var(--gold),var(--orange));border-color:transparent;}
+  .mini.a-apostuler{background:var(--green-soft);border-color:var(--green);}
+  .mini.a-reflexion{background:var(--cyan-soft);border-color:var(--cyan);}
+  .mini.a-postule{background:var(--purple-soft);border-color:var(--purple);}
+  .mini.a-ignore{background:var(--surface-3);border-color:var(--text-mute);}
+  .c-link{display:block;text-align:center;background:transparent;border:1px solid var(--border-light);color:var(--text-dim);padding:8px;border-radius:8px;text-decoration:none;font-size:12.5px;font-weight:600;margin-left:7px;transition:.12s;}
+  .c-link:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* KANBAN pipeline */
+  .kanban{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px;}
+  .kcol{background:var(--bg-2);border:1px solid var(--border);border-radius:14px;padding:12px;min-height:200px;}
+  .kcol-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;font-size:13px;font-weight:700;}
+  .kcol-head .kn{background:var(--surface-2);border-radius:999px;padding:1px 8px;font-size:11px;color:var(--text-dim);}
+  .kcol.envoye .kcol-head{color:var(--accent);} .kcol.entretien .kcol-head{color:var(--purple);}
+  .kcol.offre .kcol-head{color:var(--green);} .kcol.refuse .kcol-head{color:var(--red);} .kcol.relance .kcol-head{color:var(--orange);}
+  .kcard{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px;margin-bottom:9px;cursor:grab;transition:.15s;}
+  .kcard:hover{border-color:var(--border-light);}
+  .kcard.dragging{opacity:.4;}
+  .kcard .kt{font-size:13.5px;font-weight:700;line-height:1.3;}
+  .kcard .kc{font-size:12px;color:var(--accent);margin-top:2px;}
+  .kcard .km{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+  .kcard .kdays{font-size:10.5px;color:var(--text-mute);}
+  .kcard .kdays.warn{color:var(--orange);font-weight:700;}
+  .kcol.drop-hover{border-color:var(--accent);background:var(--accent-soft);}
+
+  /* NOTES libre (bloc-notes) */
+  .notes-board{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-top:18px;box-shadow:var(--shadow);}
+  .notes-board h3{font-family:var(--display);font-size:16px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .notes-board textarea{width:100%;background:repeating-linear-gradient(transparent,transparent 27px,var(--border) 27px,var(--border) 28px);background-attachment:local;border:1px solid var(--border);border-radius:11px;color:var(--text);padding:8px 13px;font-size:14px;line-height:28px;font-family:var(--font);outline:none;min-height:140px;resize:vertical;}
+  .notes-board textarea:focus{border-color:var(--accent);}
+  .notes-board .saved{font-size:11px;color:var(--green);margin-top:6px;height:14px;}
+
+  .empty,.loading{text-align:center;padding:55px 20px;color:var(--text-dim);}
+  .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;margin:0 auto 15px;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .error-box{background:var(--red-soft);border:1px solid var(--red);color:#fca5b5;padding:13px;border-radius:11px;margin-bottom:15px;font-size:13px;}
+  .setup-box{background:var(--orange-soft);border:1px solid var(--orange);color:#fcd9a0;padding:14px;border-radius:12px;margin-bottom:18px;font-size:13px;}
+  .setup-box code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:5px;}
+
+  /* MODAL */
+  .modal-bg{display:none;position:fixed;inset:0;background:var(--overlay);z-index:50;backdrop-filter:blur(4px);}
+  .modal-bg.open{display:grid;place-items:center;}
+  .modal{background:var(--surface);border:1px solid var(--border-light);border-radius:18px;padding:24px;width:min(560px,93vw);max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+  .modal h3{font-family:var(--display);font-size:19px;margin-bottom:16px;}
+  .modal .field{margin-bottom:13px;min-width:0;}
+  .modal-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:8px;}
+  .add-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap;}
+
+  /* Infos société (fiche entreprise) */
+  .company-info{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .ci-chip{font-size:11px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:4px 9px;border-radius:8px;}
+  .ci-na{font-size:11px;color:var(--text-mute);font-style:italic;}
+  .grid-links{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .grid-links a{flex:1;text-align:center;font-size:11.5px;color:var(--text-dim);text-decoration:none;border:1px solid var(--border);border-radius:7px;padding:6px 4px;transition:.12s;}
+  .grid-links a:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* Mini-map interactive (Leaflet) */
+  .mini-map-box{margin-top:12px;height:180px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#e8eaed;position:relative;z-index:0;}
+  .mini-map-box .leaflet-container{width:100%;height:100%;background:#e8eaed;font-family:var(--font);}
+  .mini-map-loading{display:flex;align-items:center;justify-content:center;height:100%;font-size:12.5px;color:var(--text-dim);text-align:center;padding:10px;}
+  .job-pin-dot{width:16px;height:16px;border-radius:50%;background:var(--red);border:3px solid #fff;box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.5);}
+  .leaflet-control-zoom a{background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;}
+  .leaflet-control-zoom a:hover{background:var(--surface-2)!important;}
+
+  @media(max-width:600px){.grid{grid-template-columns:1fr;}.swipe-card-wrap{height:560px;}.kanban{grid-template-columns:repeat(5,minmax(180px,1fr));}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">🧭</div>
+      <div><h1>Sam'Travail</h1><div class="tag">Ta recherche d'emploi, en mode pilote</div></div>
+    </div>
+    <div class="greeting">
+      <div class="hi" id="greet" onclick="askName()" title="Changer mon prénom" style="cursor:pointer;">Bienvenue 👋</div>
+      <div class="date" id="today"></div>
+      <div class="streak" id="streakBadge" style="display:none;"></div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Changer le thème">☀️</button>
+  </header>
+
+  <div id="setupZone"></div>
+
+  <!-- COCKPIT DU JOUR -->
+  <div class="cockpit">
+    <div class="cockpit-title">Aujourd'hui</div>
+    <div class="todo-grid" id="cockpit"></div>
+  </div>
+
+  <!-- TIMELINE repliable -->
+  <div class="timeline-wrap" id="timelineWrap">
+    <div class="timeline-head" onclick="toggleTimeline()">
+      <div class="tl-title">🗓️ Ma timeline <span class="tl-next" id="tlNext"></span></div>
+      <div class="tl-toggle"><button class="btn ghost sm" onclick="event.stopPropagation();openEventMenu()">+ Événement</button><span class="tl-chevron" id="tlChevron">▾</span></div>
+    </div>
+    <div class="timeline-body" id="timelineBody"></div>
+  </div>
+
+  <!-- ORIENTATION 3 étapes -->
+  <div class="flow-strip">
+    <button class="flow-step" onclick="setView('veille')"><span class="flow-num">1</span><span class="flow-txt"><b>Trouve</b> des offres</span></button>
+    <span class="flow-arrow">→</span>
+    <button class="flow-step" onclick="setView('offres')"><span class="flow-num">2</span><span class="flow-txt"><b>Trie</b> d'un swipe</span></button>
+    <span class="flow-arrow">→</span>
+    <button class="flow-step" onclick="setView('pipeline')"><span class="flow-num">3</span><span class="flow-txt"><b>Suis</b> tes candidatures</span></button>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav" id="nav">
+    <button class="nav-tab active" data-view="offres" onclick="setView('offres')">📥 Mes offres <span class="badge" id="nb-offres">0</span></button>
+    <button class="nav-tab" data-view="veille" onclick="setView('veille')">🔍 Trouver</button>
+    <button class="nav-tab" data-view="pipeline" onclick="setView('pipeline')">📋 Suivi <span class="badge" id="nb-pipeline">0</span></button>
+    <button class="nav-tab" data-view="reve" onclick="setView('reve')">🎯 Rêve <span class="badge" id="nb-reve">0</span></button>
+    <button class="nav-tab" data-view="reseau" onclick="setView('reseau')">🤝 Réseau <span class="badge" id="nb-reseau">0</span></button>
+    <button class="nav-tab" data-view="entretiens" onclick="setView('entretiens')">🎤 Entretiens <span class="badge" id="nb-entretiens">0</span></button>
+    <button class="nav-tab" data-view="bilan" onclick="setView('bilan')">📊 Bilan</button>
+  </div>
+
+  <!-- VIEW VEILLE -->
+  <div class="view" id="view-veille">
+    <div class="panel">
+      <div class="row">
+        <div class="field wide"><label>Thème / métier (mots-clés)</label>
+          <input id="q-mots" type="text" value="supply chain, demand planning, approvisionnement" onkeydown="entrepriseKey(event)" /></div>
+        <div class="field"><label>Entreprise (filtre)</label><input id="q-entreprise" type="text" placeholder="ex: Valeo (puis Entrée)" onkeydown="entrepriseKey(event)" /></div>
+        <div class="field"><label>Département</label><input id="q-dep" type="text" placeholder="Tous" /></div>
+        <div class="field"><label>Contrat</label><select id="q-contrat"><option value="">Tous</option><option value="CDI">CDI</option><option value="CDD">CDD</option><option value="MIS">Intérim</option></select></div>
+        <div class="field" style="flex:0;"><label>&nbsp;</label><button class="btn" id="searchBtn" onclick="doSearch()">Chercher</button></div>
+      </div>
+      <p class="hint">💡 <b>Virgule</b> = OU (plusieurs recherches). <b>Espace</b> = ET (tous les mots requis). Ex : <code>supply chain automobile, demand planning</code> → cherche (supply chain ET automobile) OU (demand planning). Le champ <b>Entreprise</b> filtre les résultats en direct.</p>
+    </div>
+    <div class="sec-head">
+      <div><h2>🔍 Trouver des offres</h2><div class="sub" id="veille-info">Cherche, puis swipe pour décider vite : ❤️ je garde · 🤔 plus tard · 🚫 non. Ce que tu gardes va dans « Mes offres ».</div></div>
+    </div>
+    <div id="errorZone"></div>
+    <div id="veille-swipe"></div>
+  </div>
+
+  <!-- VIEW MES OFFRES (offres gardées + ajout par lien) -->
+  <div class="view active" id="view-offres">
+    <div class="sec-head">
+      <div><h2>📥 Mes offres</h2><div class="sub" id="offres-info">Tes offres gardées et ajoutées à la main — trie, groupe, suis.</div></div>
+      <div class="segmented">
+        <button class="btn ghost sm" onclick="openCriteres()">⚙️ Critères</button>
+        <button class="btn" onclick="openAddLinks()">➕ Ajouter par lien</button>
+      </div>
+    </div>
+    <div class="pills" id="veille-pills">
+      <div class="pill active" data-f="all" onclick="setVeilleFilter('all')">Toutes <span class="count" id="vc-all">0</span></div>
+      <div class="pill" data-f="super" onclick="setVeilleFilter('super')">⭐ Coups de cœur <span class="count" id="vc-super">0</span></div>
+      <div class="pill" data-f="apostuler" onclick="setVeilleFilter('apostuler')">❤️ À postuler <span class="count" id="vc-apostuler">0</span></div>
+      <div class="pill" data-f="reflexion" onclick="setVeilleFilter('reflexion')">🤔 Plus tard <span class="count" id="vc-reflexion">0</span></div>
+      <div class="pill" data-f="postule" onclick="setVeilleFilter('postule')">✅ Postulé <span class="count" id="vc-postule">0</span></div>
+    </div>
+    <div class="grid-toolbar" id="grid-toolbar">
+      <div class="group-by">
+        <span class="gb-label">Grouper par :</span>
+        <div id="grid-group" class="gp-row">
+          <span class="gp active" data-g="secteur" onclick="setGridGroup('secteur')">🏭 Secteur</span>
+          <span class="gp" data-g="date" onclick="setGridGroup('date')">📅 Date</span>
+          <span class="gp" data-g="entreprise" onclick="setGridGroup('entreprise')">🏢 Entreprise</span>
+          <span class="gp" data-g="lieu" onclick="setGridGroup('lieu')">📍 Lieu</span>
+        </div>
+      </div>
+      <button class="hide-seen-btn" id="hideSeenBtn" onclick="toggleHideSeen()">👁️ Cacher déjà triées</button>
+    </div>
+    <div id="veille-grid"></div>
+  </div>
+
+  <!-- VIEW PIPELINE (kanban) -->
+  <div class="view" id="view-pipeline">
+    <div class="add-bar">
+      <div><h2 style="font-family:var(--display);font-size:21px;">Pipeline</h2><div class="sub">Glisse une carte entre colonnes pour changer son statut.</div></div>
+      <button class="btn sm" onclick="openModal('pipeline')">+ Candidature</button>
+    </div>
+    <div id="relances-panel"></div>
+    <div id="pipeline-content"></div>
+    <div class="notes-board">
+      <h3>📝 Bloc-notes pipeline</h3>
+      <textarea id="notes-pipeline" placeholder="Tes notes libres : idées, relances à faire, infos recruteurs..." oninput="saveNote('pipeline')"></textarea>
+      <div class="saved" id="saved-pipeline"></div>
+    </div>
+  </div>
+
+  <!-- VIEW REVE -->
+  <div class="view" id="view-reve">
+    <div class="add-bar"><div><h2 style="font-family:var(--display);font-size:21px;">Entreprises rêve</h2><div class="sub">Ta target list — clique pour éditer.</div></div><button class="btn sm" onclick="openModal('reve')">+ Entreprise</button></div>
+    <div id="reve-content"></div>
+    <div class="notes-board"><h3>📝 Notes stratégie</h3><textarea id="notes-reve" placeholder="Idées d'approche, contacts à activer, candidatures spontanées à tenter..." oninput="saveNote('reve')"></textarea><div class="saved" id="saved-reve"></div></div>
+  </div>
+
+  <!-- VIEW RESEAU -->
+  <div class="view" id="view-reseau">
+    <div class="add-bar"><div><h2 style="font-family:var(--display);font-size:21px;">Réseau</h2><div class="sub">Tes contacts et échanges LinkedIn.</div></div><button class="btn sm" onclick="openModal('reseau')">+ Contact</button></div>
+    <div id="reseau-content"></div>
+  </div>
+
+  <!-- VIEW ENTRETIENS -->
+  <div class="view" id="view-entretiens">
+    <div class="add-bar"><div><h2 style="font-family:var(--display);font-size:21px;">Entretiens</h2><div class="sub">Préparation et suivi.</div></div><button class="btn sm" onclick="openModal('entretiens')">+ Entretien</button></div>
+    <div id="entretiens-content"></div>
+  </div>
+
+  <!-- VIEW BILAN (stats + campagnes) -->
+  <div class="view" id="view-bilan">
+    <div class="add-bar"><div><h2 style="font-family:var(--display);font-size:21px;">📊 Bilan de ma recherche</h2><div class="sub">Tes chiffres et l'avancement de tes campagnes.</div></div><button class="btn sm ghost" onclick="exportCSV()">⬇️ Export CSV</button></div>
+    <div id="bilan-content"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBox"></div></div>
+<script>
+  // ===== CONFIG =====
+  const SUPABASE_URL="https://vjvidltlrqxssigxboqy.supabase.co";
+  const SUPABASE_ANON_KEY="sb_publishable_yMT8GmHQ_ooUC1wxHtv-dQ_TMjEz3JL";
+  let sb=null; const sbReady=(SUPABASE_URL!=="TON_SUPABASE_URL");
+  try{ if(sbReady) sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }catch(e){}
+
+  // ===== ETAT =====
+  let allOffers=[], statusMap={}, pipeline=[], reve=[], reseau=[], entretiens=[], evenements=[];
+  let seenOffers={}; // {offer_id: true} — offres déjà affichées au moins une fois
+  let gridGroupBy="secteur", hideSeen=false;
+  let veilleFilter="all", viewMode="swipe", swipeIndex=0, swipeQueue=[], entrepriseFilter="";
+
+  // ===== SECTEURS (couleur + détection) =====
+  const SECTORS=[
+    {key:"Automobile",kw:["automobile","auto","stellantis","renault","peugeot","valeo","faurecia","forvia"],c:"#5b8def"},
+    {key:"Aéronautique",kw:["aéronau","aviation","airbus","safran","thales","dassault","spatial"],c:"#22d3ee"},
+    {key:"Pharma / Santé",kw:["pharma","santé","vaccin","gsk","sanofi","médical","biotech","laborat"],c:"#22c55e"},
+    {key:"Nautisme",kw:["nautisme","bateau","beneteau","naval","marine","voile"],c:"#a87ffb"},
+    {key:"Luxe / Cosmétique",kw:["luxe","cosmét","l'oréal","lvmh","parfum"],c:"#f472b6"},
+    {key:"Agroalimentaire",kw:["agroaliment","danone","nestlé","food","alimentaire"],c:"#fbbf24"},
+    {key:"Industrie",kw:["industrie","usine","production","manufactur"],c:"#f59e0b"},
+  ];
+  function detectSector(o){
+    const t=((o.titre||"")+" "+(o.entreprise||"")+" "+(o.description||"")+" "+(o.rome||"")).toLowerCase();
+    for(const s of SECTORS){ if(s.kw.some(k=>t.includes(k))) return s; }
+    return {key:"Autre",kw:[],c:"#9aa2b4"};
+  }
+
+  // ===== SCORE DE MATCH =====
+  // Critères modifiables (chargés depuis Supabase, sinon ces défauts)
+  let matchCriteria={
+    secteurs:{"Nautisme":3,"Aéronautique":3,"Automobile":3,"Industrie":2,"Pharma / Santé":1,"Luxe / Cosmétique":0,"Agroalimentaire":1,"Autre":2},
+    lieuxPref:["bretagne","normandie","pays de la loire","loire-atlantique","morbihan","finistère","ille-et-vilaine","manche","vendée","côtes-d'armor","belgique","suisse","44","35","56","29","22","50","85"],
+    lieuxExclus:["paris","75","ile-de-france","île-de-france"],
+    contratPref:"CDI",
+    motsBonus:["supply chain","demand planning","approvisionnement","planification","logistique","s&op","planner"],
+    motsMalus:["alternance","stage","apprenti"]
+  };
+
+  function matchScore(o){
+    let score=50; // base
+    const sec=detectSector(o).key;
+    const w=matchCriteria.secteurs[sec];
+    if(w!==undefined) score+=w*8; // secteur prioritaire : +0 à +24
+    const lieu=(o.lieu||"").toLowerCase();
+    if(matchCriteria.lieuxPref.some(l=>lieu.includes(l))) score+=15;
+    if(matchCriteria.lieuxExclus.some(l=>lieu.includes(l))) score-=20;
+    const contrat=(o.typeContrat||"").toLowerCase();
+    if(matchCriteria.contratPref && contrat.includes(matchCriteria.contratPref.toLowerCase())) score+=10;
+    const txt=((o.titre||"")+" "+(o.description||"")).toLowerCase();
+    matchCriteria.motsBonus.forEach(m=>{ if(m&&txt.includes(m.toLowerCase())) score+=4; });
+    matchCriteria.motsMalus.forEach(m=>{ if(m&&txt.includes(m.toLowerCase())) score-=12; });
+    return Math.max(0,Math.min(100,Math.round(score)));
+  }
+  function matchBadge(o){
+    const s=matchScore(o);
+    const cls=s>=75?"m-high":s>=55?"m-mid":"m-low";
+    const lbl=s>=75?"fort":s>=55?"moyen":"faible";
+    return '<span class="match-badge '+cls+'" title="Score de match (modifie tes critères avec ⚙️)">🎯 '+s+' · '+lbl+'</span>';
+  }
+
+  function openCriteres(){
+    const secKeys=SECTORS.map(s=>s.key).concat(["Autre"]);
+    const box=document.getElementById("modalBox");
+    box.innerHTML=`
+      <div class="modal-head"><h3>⚙️ Mes critères de match</h3><button class="x" onclick="closeModal()">✕</button></div>
+      <p class="modal-sub">Règle l'importance de chaque critère. Le score 🎯 de chaque offre se recalcule automatiquement et les meilleures remontent.</p>
+      <div class="crit-block"><div class="crit-label">🏭 Secteurs (priorité 0 à 3)</div>
+        ${secKeys.map(k=>`<div class="crit-row"><span>${esc(k)}</span><div class="crit-stars" data-sec="${esc(k)}">
+          ${[0,1,2,3].map(n=>`<span class="star ${(matchCriteria.secteurs[k]||0)>=n&&n>0?'on':''} ${n===0?'zero':''}" onclick="setSecW('${esc(k)}',${n})">${n===0?'∅':'★'}</span>`).join("")}
+        </div></div>`).join("")}
+      </div>
+      <div class="crit-block"><div class="crit-label">📍 Lieux préférés (+15)</div>
+        <input class="crit-in" id="crit-lieux" value="${esc(matchCriteria.lieuxPref.join(", "))}" />
+        <div class="crit-hint">Villes, régions ou n° de département, séparés par virgule.</div>
+      </div>
+      <div class="crit-block"><div class="crit-label">🚫 Lieux à éviter (−20)</div>
+        <input class="crit-in" id="crit-exclus" value="${esc(matchCriteria.lieuxExclus.join(", "))}" />
+      </div>
+      <div class="crit-block"><div class="crit-label">📄 Contrat préféré (+10)</div>
+        <input class="crit-in" id="crit-contrat" value="${esc(matchCriteria.contratPref)}" placeholder="CDI" />
+      </div>
+      <div class="crit-block"><div class="crit-label">✅ Mots bonus (+4 chacun)</div>
+        <input class="crit-in" id="crit-bonus" value="${esc(matchCriteria.motsBonus.join(", "))}" />
+      </div>
+      <div class="crit-block"><div class="crit-label">⛔ Mots malus (−12 chacun)</div>
+        <input class="crit-in" id="crit-malus" value="${esc(matchCriteria.motsMalus.join(", "))}" />
+      </div>
+      <button class="btn btn-validate" onclick="saveCriteres()">💾 Enregistrer mes critères</button>`;
+    document.getElementById("modalBg").classList.add("open");
+  }
+  function setSecW(sec,n){ matchCriteria.secteurs[sec]=n; openCriteres(); }
+  async function saveCriteres(){
+    const splitC=(id)=>(document.getElementById(id).value||"").split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+    matchCriteria.lieuxPref=splitC("crit-lieux");
+    matchCriteria.lieuxExclus=splitC("crit-exclus");
+    matchCriteria.contratPref=(document.getElementById("crit-contrat").value||"").trim();
+    matchCriteria.motsBonus=splitC("crit-bonus");
+    matchCriteria.motsMalus=splitC("crit-malus");
+    if(sb){try{await sb.from("parametres").upsert({cle:"matchCriteria",valeur:matchCriteria,updated_at:new Date().toISOString()},{onConflict:"cle"});}catch(e){}}
+    closeModal();
+    renderVeille();
+  }
+
+  function companyWebsite(name){
+    return "https://www.google.com/search?q="+encodeURIComponent((name||"")+" entreprise site officiel");
+  }
+  function companyLinks(name){
+    const n=encodeURIComponent(name||"");
+    return {
+      site:"https://www.google.com/search?q="+n+"+site+officiel",
+      wiki:"https://fr.wikipedia.org/w/index.php?search="+n,
+      avis:"https://fr.indeed.com/cmp/"+encodeURIComponent((name||"").trim().replace(/\s+/g,"-"))+"/reviews",
+      avis2:"https://www.google.com/search?q="+n+"+avis+employés+glassdoor",
+      societe:"https://www.pappers.fr/recherche?q="+n,
+    };
+  }
+  // ===== MINI-MAP INTERACTIVE (Leaflet + tuiles Geoapify dark-matter) =====
+  const GEOAPIFY_KEY="5fda6ac6574e46e583b4955b0f578860";
+  const MAP_STYLE="positron";
+  let geoCache={};
+  let mapInstances={}; // pour nettoyer les cartes Leaflet entre les slides
+  // Placeholder : un conteneur qui recevra la carte interactive
+  function miniMapHtml(o){
+    if(!o.lieu && !o.lat) return "";
+    const ville=esc(o.lieu||"Lieu");
+    return '<div class="mini-map-box" id="map-'+o.id+'"><div class="mini-map-loading">📍 '+ville+' — chargement de la carte…</div></div>';
+  }
+  // Après rendu : géocode si besoin puis monte la carte Leaflet interactive
+  async function loadMapInto(offerId, lieu, lat, lon){
+    const box=document.getElementById("map-"+offerId);
+    if(!box || typeof L==="undefined")return;
+    let la=lat, lo=lon;
+    // géocodage de la ville si pas de coordonnées
+    if((!la||!lo) && lieu){
+      const key=lieu.toLowerCase();
+      if(geoCache[key]){ la=geoCache[key].lat; lo=geoCache[key].lon; }
+      else{
+        try{
+          const q=lieu.replace(/[()]/g," ").trim();
+          const r=await fetch("https://api.geoapify.com/v1/geocode/search?text="+encodeURIComponent(q)+"&type=city&filter=countrycode:fr,be,ch,lu&format=json&limit=1&apiKey="+GEOAPIFY_KEY);
+          const d=await r.json();
+          if(d.results&&d.results[0]){ la=d.results[0].lat; lo=d.results[0].lon; geoCache[key]={lat:la,lon:lo}; }
+        }catch(e){}
+      }
+    }
+    if(!la||!lo){
+      const gmaps="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(lieu||"");
+      box.innerHTML='<a class="mini-map-loading" style="color:var(--accent);text-decoration:none;" href="'+gmaps+'" target="_blank" rel="noopener">📍 '+esc(lieu||"")+' — voir sur Google Maps</a>';
+      return;
+    }
+    // Monte la carte Leaflet
+    box.innerHTML="";
+    try{
+      const map=L.map(box,{scrollWheelZoom:true,attributionControl:false}).setView([la,lo],6);
+      L.tileLayer("https://maps.geoapify.com/v1/tile/"+MAP_STYLE+"/{z}/{x}/{y}.png?apiKey="+GEOAPIFY_KEY,{maxZoom:18}).addTo(map);
+      // marqueur custom
+      const icon=L.divIcon({className:"job-pin",html:'<div class="job-pin-dot"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+      L.marker([la,lo],{icon}).addTo(map);
+      mapInstances[offerId]=map;
+      // recalcule la taille après affichage (Leaflet a besoin que le conteneur soit visible)
+      setTimeout(()=>{try{map.invalidateSize();}catch(e){}},200);
+    }catch(e){ box.innerHTML='<div class="mini-map-loading">📍 '+esc(lieu||"")+'</div>'; }
+  }
+
+  // Cache des infos entreprise déjà récupérées (évite de refaire l'appel)
+  let companyCache={};
+  async function fetchCompany(name){
+    if(!name)return null;
+    if(companyCache[name]!==undefined)return companyCache[name];
+    try{
+      const resp=await fetch("/api/company?nom="+encodeURIComponent(name));
+      const data=await resp.json();
+      companyCache[name]=data&&data.found?data:null;
+    }catch(e){companyCache[name]=null;}
+    return companyCache[name];
+  }
+  // Injecte les infos entreprise dans le bloc #company-info-{id} une fois chargées
+  async function loadCompanyInto(targetId,name){
+    const data=await fetchCompany(name);
+    const el=document.getElementById(targetId);
+    if(!el)return;
+    if(!data){el.innerHTML='<span class="ci-na">Infos société non trouvées dans l\'annuaire officiel</span>';return;}
+    const bits=[];
+    if(data.effectif&&data.effectif!=="Non renseigné")bits.push(`<span class="ci-chip">👥 ${esc(data.effectif)}</span>`);
+    if(data.ville_siege)bits.push(`<span class="ci-chip">🏛 Siège : ${esc(data.ville_siege)}</span>`);
+    if(data.activite)bits.push(`<span class="ci-chip">🏭 ${esc(data.activite)}</span>`);
+    if(data.date_creation)bits.push(`<span class="ci-chip">📅 Créée en ${esc((data.date_creation||"").slice(0,4))}</span>`);
+    el.innerHTML=bits.length?bits.join(""):'<span class="ci-na">Pas de détails société publics</span>';
+  }
+
+  // ===== ROADMAP =====
+  // Échéances fixes (parcours) — non modifiables
+  const DEADLINES=[
+    {icon:"📝",label:"Rendu mémoire",date:"2026-06-22",fixed:true},
+    {icon:"📋",label:"Rapport stage",date:"2026-07-01",fixed:true},
+    {icon:"💼",label:"Fin stage GSK",date:"2026-07-16",fixed:true},
+    {icon:"🎓",label:"Diplôme IÉSEG",date:"2026-10-01",fixed:true},
+  ];
+  const EVENT_ICONS={Entretien:"🎤",Deadline:"⏰",Relance:"🔔",Perso:"🏖",Autre:"📌"};
+  const EVENT_COLORS={Entretien:"var(--purple)",Deadline:"var(--orange)",Relance:"var(--cyan)",Perso:"var(--pink)",Autre:"var(--accent)"};
+
+  function toggleTimeline(){
+    document.getElementById("timelineWrap").classList.toggle("open");
+  }
+
+  function renderRoadmap(){
+    const now=new Date();now.setHours(0,0,0,0);
+    const fixed=DEADLINES.map(d=>({...d,id:null,color:"var(--green)"}));
+    const perso=evenements.map(e=>({icon:EVENT_ICONS[e.type]||"📌",label:e.titre,date:e.date_event,id:e.id,fixed:false,color:EVENT_COLORS[e.type]||"var(--accent)"}));
+    const all=[...fixed,...perso]
+      .filter(d=>Math.round((new Date(d.date)-now)/86400000)>=-7)
+      .sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+    // Aperçu : les 4 prochaines échéances (mini-pastilles)
+    const upcoming=all.filter(d=>Math.round((new Date(d.date)-now)/86400000)>=0).slice(0,4);
+    const nextEl=document.getElementById("tlNext");
+    if(nextEl){
+      if(upcoming.length){
+        nextEl.innerHTML=upcoming.map(d=>{
+          const dd=Math.round((new Date(d.date)-now)/86400000);
+          return `<span class="tl-mini" style="color:${d.color};">${d.icon} ${esc(d.label)} <b>${dd===0?"auj.":"J-"+dd}</b></span>`;
+        }).join("");
+      } else nextEl.innerHTML='<span class="tl-mini">Rien à venir</span>';
+    }
+
+    const body=document.getElementById("timelineBody");
+    if(!all.length){body.innerHTML='<div class="frise-empty">Aucun événement. Clique sur « + Événement » pour en ajouter.</div>';return;}
+
+    // Largeur : espace chaque jalon de ~150px
+    const spacing=150;
+    const trackWidth=Math.max(all.length*spacing+60, 100);
+    // Position du "aujourd'hui" : interpolation entre min et max date
+    const dates=all.map(d=>new Date(d.date).getTime());
+    const minD=Math.min(...dates), maxD=Math.max(...dates);
+    const span=maxD-minD||1;
+    const todayPct=Math.max(0,Math.min(100,((now.getTime()-minD)/span)*100));
+
+    const jalons=all.map((d,i)=>{
+      const dt=new Date(d.date),days=Math.round((dt-now)/86400000),past=days<0;
+      const ds=dt.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"});
+      const x=((i+0.5)/all.length)*100;
+      const updown=i%2===0?"up":"down";
+      const daysStr=past?"✓ passé":days===0?"aujourd'hui":"J-"+days;
+      const onclick=d.id?`onclick="openEventMenu('${d.id}')"`:"";
+      return `<div class="jalon ${updown} ${past?'past':''} ${d.fixed?'fixed':''}" style="left:${x}%;color:${d.color};">
+        <div class="jalon-card" ${onclick}>
+          <div class="jalon-icon">${d.icon}</div>
+          <div class="jalon-label">${esc(d.label)}</div>
+          <div class="jalon-date">${ds}</div>
+          <div class="jalon-days" style="color:${d.color};">${daysStr}</div>
+        </div>
+        <div class="jalon-connector"></div>
+        <div class="jalon-dot"></div>
+      </div>`;
+    }).join("");
+
+    body.innerHTML=`<div class="frise"><div class="frise-track" style="min-width:${trackWidth}px;">
+      <div class="frise-line"></div>
+      <div class="frise-today" style="left:${todayPct}%;"></div>
+      ${jalons}
+    </div></div>`;
+  }
+
+  // ===== MENU ÉVÉNEMENTS =====
+  function openEventMenu(id){
+    let ev=id?evenements.find(e=>e.id===id):null;
+    const box=document.getElementById("modalBox");
+    const types=["Entretien","Deadline","Relance","Perso","Autre"];
+    box.innerHTML=`<h3>${ev?"Éditer":"Ajouter"} un événement</h3>
+      <div class="field"><label>Titre</label><input id="ev-titre" type="text" value="${ev?esc(ev.titre):""}" placeholder="Ex: Entretien Michelin, Deadline candidature..." /></div>
+      <div class="field"><label>Date</label><input id="ev-date" type="date" value="${ev?ev.date_event:""}" /></div>
+      <div class="field"><label>Type</label><select id="ev-type">${types.map(t=>`<option ${ev&&ev.type===t?"selected":""}>${t}</option>`).join("")}</select></div>
+      <div class="field"><label>Notes</label><textarea id="ev-notes">${ev?esc(ev.notes||""):""}</textarea></div>
+      <div class="modal-actions">${ev?`<button class="btn danger" onclick="delEvent('${ev.id}')">Supprimer</button>`:""}<button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn" onclick="saveEvent('${ev?ev.id:""}')">Enregistrer</button></div>`;
+    document.getElementById("modalBg").classList.add("open");
+  }
+  async function saveEvent(id){
+    const obj={titre:document.getElementById("ev-titre").value,date_event:document.getElementById("ev-date").value,type:document.getElementById("ev-type").value,notes:document.getElementById("ev-notes").value};
+    if(!obj.titre||!obj.date_event){alert("Titre et date obligatoires");return;}
+    if(sb){ if(id)await sb.from("evenements").update(obj).eq("id",id); else await sb.from("evenements").insert(obj); }
+    await loadAll();renderRoadmap();renderCockpit();closeModal();
+  }
+  async function delEvent(id){
+    if(sb)await sb.from("evenements").delete().eq("id",id);
+    await loadAll();renderRoadmap();renderCockpit();closeModal();
+  }
+
+  // ===== COCKPIT DU JOUR =====
+  function renderCockpit(){
+    const now=new Date();now.setHours(0,0,0,0);
+    const aTrier=swipeQueue.length;
+    const aPostuler=Object.values(statusMap).filter(s=>s.statut==="apostuler"||s.statut==="super").length;
+    const relances=pipeline.filter(relanceDue).length;
+    const entretiensProches=entretiens.filter(e=>{if(!e.date_entretien)return false;const d=Math.round((new Date(e.date_entretien)-now)/86400000);return d>=0&&d<=7;}).length;
+    const offres=pipeline.filter(p=>p.statut==="Offre reçue").length;
+    const items=[
+      {n:aTrier,t:"offres à trier",cls:"blue",act:()=>{setView('veille');}},
+      {n:aPostuler,t:"prêtes à postuler",cls:"green",act:()=>{setView('offres');setVeilleFilter('apostuler');}},
+      {n:relances,t:"relances à faire",cls:"orange",act:()=>setView('pipeline')},
+      {n:entretiensProches,t:"entretiens cette semaine",cls:"purple",act:()=>setView('entretiens')},
+      {n:offres,t:"offres reçues 🎉",cls:"red",act:()=>setView('pipeline')},
+    ];
+    document.getElementById("cockpit").innerHTML=items.map((it,i)=>
+      `<div class="todo ${it.cls} ${it.n===0?'zero':''}" onclick="cockpitAct(${i})"><div class="n">${it.n}</div><div class="t">${it.t}</div></div>`
+    ).join("");
+    window._cockpitActs=items.map(it=>it.act);
+  }
+  function cockpitAct(i){ if(window._cockpitActs&&window._cockpitActs[i])window._cockpitActs[i](); }
+
+  // ===== NAV =====
+  function setView(v){
+    document.querySelectorAll(".nav-tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));
+    document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id==="view-"+v));
+    // amène la barre d'onglets en haut de l'écran -> le contenu de l'onglet est visible juste en dessous
+    const nav=document.getElementById("nav");
+    if(nav){const y=nav.getBoundingClientRect().top+window.pageYOffset-12;window.scrollTo({top:y,behavior:"smooth"});}
+  }
+
+  // ===== SUPABASE LOAD =====
+  async function loadAll(){
+    if(!sb)return;
+    try{
+      const [js,pl,rv,rs,et,ev,so,pc]=await Promise.all([
+        sb.from("job_status").select("*"),
+        sb.from("pipeline").select("*").order("date_envoi",{ascending:false}),
+        sb.from("entreprises_reve").select("*"),
+        sb.from("reseau").select("*"),
+        sb.from("entretiens").select("*").order("date_entretien"),
+        sb.from("evenements").select("*").order("date_event"),
+        sb.from("seen_offers").select("offer_id"),
+        sb.from("parametres").select("*").eq("cle","matchCriteria").maybeSingle(),
+      ]);
+      statusMap={}; (js.data||[]).forEach(r=>statusMap[r.offer_id]={statut:r.statut,offer:r.offer_data});
+      pipeline=pl.data||[]; reve=rv.data||[]; reseau=rs.data||[]; entretiens=et.data||[]; evenements=ev.data||[];
+      seenOffers={}; (so&&so.data||[]).forEach(r=>seenOffers[r.offer_id]=true);
+      if(pc&&pc.data&&pc.data.valeur){ try{ matchCriteria={...matchCriteria,...pc.data.valeur}; }catch(e){} }
+    }catch(e){console.warn(e);}
+    // notes (localStorage-free : stockées dans Supabase via table simple ? -> on garde en mémoire + localStorage interdit en artifact, donc on persiste via job_status spécial)
+  }
+
+  // ===== RECHERCHE (France Travail + Adzuna en parallèle) =====
+  async function doSearch(){
+    const btn=document.getElementById("searchBtn");btn.disabled=true;btn.textContent="...";
+    document.getElementById("errorZone").innerHTML="";
+    document.getElementById("veille-swipe").innerHTML='<div class="loading"><div class="spinner"></div>Recherche multi-sources en cours...</div>';
+    const entreprise=(document.getElementById("q-entreprise").value||"").trim();
+    // On garde aussi le filtre live pour l'affichage
+    entrepriseFilter=entreprise.toLowerCase();
+    let motsCles=document.getElementById("q-mots").value;
+    // Si une entreprise est saisie, on l'ajoute en "ET" à chaque terme (virgule = OU préservé)
+    if(entreprise){
+      motsCles=motsCles.split(",").map(t=>t.trim()).filter(Boolean).map(t=>t+" "+entreprise).join(",");
+      // si aucun mot-clé, on cherche juste l'entreprise
+      if(!motsCles) motsCles=entreprise;
+    }
+    const qs=new URLSearchParams({motsCles:motsCles,entreprise:entreprise,departement:document.getElementById("q-dep").value,typeContrat:document.getElementById("q-contrat").value,parPage:"100",page:"0"}).toString();
+    try{
+      // On lance les deux sources en parallèle. Adzuna peut échouer sans bloquer FT.
+      const [ftRes, adzRes] = await Promise.allSettled([
+        fetch("/api/search?"+qs).then(r=>r.ok?r.json():Promise.reject(r)),
+        fetch("/api/adzuna?"+qs).then(r=>r.ok?r.json():{offers:[],total:0}),
+      ]);
+
+      let combined=[]; let totalFt=0; let totalAdz=0; let ftError=null;
+      if(ftRes.status==="fulfilled"){ combined=combined.concat(ftRes.value.offers||[]); totalFt=ftRes.value.total||0; }
+      else { ftError="France Travail indisponible (vérifie tes clés dans Vercel)."; }
+      if(adzRes.status==="fulfilled"&&adzRes.value.offers){ combined=combined.concat(adzRes.value.offers); totalAdz=adzRes.value.total||0; }
+
+      // Déduplication inter-sources : par titre+entreprise normalisés
+      const seen=new Set(); const deduped=[];
+      combined.forEach(o=>{
+        const key=((o.titre||"")+"|"+(o.entreprise||"")).toLowerCase().replace(/\s+/g,"").slice(0,60);
+        if(seen.has(key))return; seen.add(key); deduped.push(o);
+      });
+      // Tri par date décroissante
+      deduped.sort((a,b)=>new Date(b.dateCreation||0)-new Date(a.dateCreation||0));
+      // Marque les offres jamais vues comme "nouvelles", puis les enregistre comme vues
+      const nouvelles=[];
+      deduped.forEach(o=>{ o.isNew = !seenOffers[o.id]; if(o.isNew) nouvelles.push(o.id); });
+      allOffers=deduped;
+      // enregistre les nouvelles dans seen_offers (Supabase) pour les prochaines fois
+      if(sb && nouvelles.length){
+        nouvelles.forEach(id=>seenOffers[id]=true);
+        try{ sb.from("seen_offers").upsert(nouvelles.map(id=>({offer_id:id})),{onConflict:"offer_id"}); }catch(e){}
+      }
+
+      const srcParts=[];
+      if(totalFt) srcParts.push("France Travail ~"+totalFt);
+      if(totalAdz) srcParts.push("Adzuna ~"+totalAdz);
+      const nbNew=nouvelles.length;
+      document.getElementById("veille-info").textContent=allOffers.length+" offres"+(nbNew?" ("+nbNew+" nouvelles)":"")+(srcParts.length?" · "+srcParts.join(" · "):"")+" · swipe pour trier";
+      if(ftError) document.getElementById("errorZone").innerHTML='<div class="error-box">⚠️ '+ftError+'</div>';
+      rebuildSwipeQueue(); renderVeille(); renderCockpit();
+    }catch(e){
+      document.getElementById("errorZone").innerHTML='<div class="error-box">⚠️ '+e.message+'</div>';
+      document.getElementById("veille-swipe").innerHTML='<div class="empty">Impossible de charger. Vérifie la config API dans Vercel.</div>';
+    }finally{btn.disabled=false;btn.textContent="Chercher";}
+  }
+
+  // ===== MODE swipe / grid =====
+  // setMode conservé pour compat (le cockpit l'appelle) — bascule juste sur la bonne vue
+  function setMode(m){
+    viewMode=m;
+    if(m==="swipe") setView("veille");
+    else setView("offres");
+    renderVeille();
+  }
+
+  // File de swipe = offres pas encore triées
+  function matchEntreprise(o){
+    if(!entrepriseFilter)return true;
+    return (o.entreprise||"").toLowerCase().includes(entrepriseFilter);
+  }
+  // Le champ entreprise se déclenche sur Entrée (pas à chaque lettre)
+  function entrepriseKey(e){
+    if(e.key==="Enter"){ doSearch(); }
+  }
+  function rebuildSwipeQueue(){
+    swipeQueue=allOffers.filter(o=>!statusMap[o.id] && matchEntreprise(o));
+    swipeIndex=0;
+  }
+
+  function esc(s){return (s||"").toString().replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+
+  // ===== RENDER VEILLE (dispatch) =====
+  function renderVeille(){
+    // compteurs grille
+    const merged={};allOffers.forEach(o=>merged[o.id]=o);
+    Object.keys(statusMap).forEach(id=>{if(!merged[id]&&statusMap[id].offer)merged[id]=statusMap[id].offer;});
+    const list=Object.values(merged);
+    const counts={all:list.length,super:0,apostuler:0,reflexion:0,postule:0};
+    list.forEach(o=>{const s=statusMap[o.id]&&statusMap[o.id].statut;if(s&&counts[s]!==undefined)counts[s]++;});
+    Object.keys(counts).forEach(k=>{const el=document.getElementById("vc-"+k);if(el)el.textContent=counts[k];});
+    // badge "Mes offres" = nombre d'offres gardées (hors juste vues)
+    const nbOffres=Object.values(statusMap).filter(s=>s.statut&&s.statut!=="passe").length;
+    const nbEl=document.getElementById("nb-offres");if(nbEl)nbEl.textContent=nbOffres;
+    // On rend les deux : le swipe (Recherche FT) et la grille (Mes offres)
+    renderSwipe(); renderGrid();
+  }
+
+  // ===== SWIPE =====
+  function renderSwipe(){
+    const c=document.getElementById("veille-swipe");
+    if(!allOffers.length){c.innerHTML='<div class="empty">Lance une recherche pour commencer à trier.</div>';return;}
+    if(swipeIndex>=swipeQueue.length){
+      c.innerHTML=`<div class="swipe-done"><div class="big">🎉 Tout est trié !</div><p class="info">Tu as passé en revue les ${swipeQueue.length} offres. Retrouve tes coups de cœur dans « Mes offres ».</p><button class="btn" onclick="setView('offres')">Voir mes offres</button></div>`;
+      return;
+    }
+    const o=swipeQueue[swipeIndex];
+    const sec=detectSector(o);
+    const dateStr=o.dateCreation?new Date(o.dateCreation).toLocaleDateString("fr-FR"):"";
+    const oData=esc(JSON.stringify(o));
+    const progress=Math.round((swipeIndex/swipeQueue.length)*100);
+    c.innerHTML=`
+      <div class="swipe-stage">
+        <div class="swipe-progress"><div class="bar"><div class="fill" style="width:${progress}%"></div></div><div class="lbl">${swipeIndex} / ${swipeQueue.length} triées</div></div>
+        <div class="swipe-card-wrap">
+          <div class="swipe-card" id="swipeCard">
+            <div class="swipe-badge like" id="badge-like">GARDÉ</div>
+            <div class="swipe-badge nope" id="badge-nope">PASSÉ</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+              <div class="sector-tag" style="background:${sec.c}22;color:${sec.c};border:1px solid ${sec.c}55;margin-bottom:0;">${sec.key}${o.source?' · '+o.source:''}</div>
+              ${matchBadge(o)}
+            </div>
+            <h3>${esc(o.titre)}</h3>
+            <div class="company">${esc(o.entreprise)}</div>
+            <div class="facts">
+              ${o.lieu?`<div class="fact"><span class="fl">📍</span><span class="fv">${esc(o.lieu)}</span></div>`:""}
+              ${o.typeContrat?`<div class="fact"><span class="fl">📄</span><span class="fv">${esc(o.typeContrat)}</span></div>`:""}
+              ${o.experience?`<div class="fact"><span class="fl">⏱</span><span class="fv">${esc(o.experience)}</span></div>`:""}
+              ${o.salaire?`<div class="fact"><span class="fl">💶</span><span class="fv">${esc(o.salaire)}</span></div>`:""}
+            </div>
+            <div class="desc">${esc(o.description)||"Pas de description fournie."}${o.description&&o.description.length>=300?"…":""}</div>
+            ${miniMapHtml(o)}
+            ${dateStr?`<div class="c-date" style="padding-left:0;margin-top:10px;">Publié le ${dateStr}</div>`:""}
+            <div class="company-info" id="ci-${o.id}"><span class="ci-na">Chargement infos société…</span></div>
+            <div class="links">
+              <a href="${esc(o.lien)}" target="_blank" rel="noopener">📋 Offre</a>
+              <a href="${companyLinks(o.entreprise).site}" target="_blank" rel="noopener">🏢 Site</a>
+              <a href="${companyLinks(o.entreprise).wiki}" target="_blank" rel="noopener">📖 Wiki</a>
+              <a href="${companyLinks(o.entreprise).avis}" target="_blank" rel="noopener">⭐ Avis</a>
+              <a href="${companyLinks(o.entreprise).societe}" target="_blank" rel="noopener">📊 CA</a>
+            </div>
+          </div>
+        </div>
+        <div class="swipe-actions">
+          <div class="sa nope" title="Passer (←)" onclick="swipeAction('ignore')">🚫</div>
+          <div class="sa later" title="Plus tard (↓)" onclick="swipeAction('reflexion')">🤔</div>
+          <div class="sa like" title="Garder / à postuler (→)" onclick="swipeAction('apostuler')">❤️</div>
+          <div class="sa super" title="Coup de cœur (↑)" onclick="swipeAction('super')">⭐</div>
+        </div>
+        <div class="swipe-hint">⌨️ Raccourcis : ← passer · → garder · ↑ coup de cœur · ↓ plus tard</div>
+      </div>`;
+    // charge les infos société en asynchrone (sans bloquer l'affichage)
+    loadCompanyInto("ci-"+o.id, o.entreprise);
+    loadMapInto(o.id, o.lieu, o.lat, o.lon);
+  }
+
+  async function swipeAction(statut){
+    if(swipeIndex>=swipeQueue.length)return;
+    const o=swipeQueue[swipeIndex];
+    const card=document.getElementById("swipeCard");
+    // animation
+    const dir=statut==="ignore"?"gone-left":statut==="apostuler"?"gone-right":statut==="super"?"gone-up":"gone-down";
+    if(card){
+      if(statut==="apostuler"||statut==="super"){const b=document.getElementById("badge-like");if(b)b.classList.add("show");}
+      if(statut==="ignore"){const b=document.getElementById("badge-nope");if(b)b.classList.add("show");}
+      card.classList.add(dir);
+    }
+    // enregistre (apostuler/super = liste "à postuler", PAS encore dans le pipeline)
+    statusMap[o.id]={statut,offer:o};
+    if(sb) await sb.from("job_status").upsert({offer_id:o.id,statut,offer_data:o,updated_at:new Date().toISOString()},{onConflict:"offer_id"});
+    // nettoie la carte Leaflet de l'offre quittée
+    if(mapInstances[o.id]){try{mapInstances[o.id].remove();}catch(e){}delete mapInstances[o.id];}
+    swipeIndex++;
+    setTimeout(()=>{renderSwipe();renderCockpit();renderStatsBadges();},340);
+  }
+
+  // clavier
+  document.addEventListener("keydown",(e)=>{
+    if(viewMode!=="swipe"||!document.getElementById("view-veille").classList.contains("active"))return;
+    if(document.querySelector(".modal-bg.open"))return;
+    if(e.key==="ArrowLeft")swipeAction("ignore");
+    else if(e.key==="ArrowRight")swipeAction("apostuler");
+    else if(e.key==="ArrowUp"){e.preventDefault();swipeAction("super");}
+    else if(e.key==="ArrowDown"){e.preventDefault();swipeAction("reflexion");}
+  });
+
+  // ===== GRILLE =====
+  function setVeilleFilter(f){veilleFilter=f;document.querySelectorAll("#veille-pills .pill").forEach(p=>p.classList.toggle("active",p.dataset.f===f));renderGrid();}
+  function setGridGroup(g){gridGroupBy=g;document.querySelectorAll("#grid-group .gp").forEach(p=>p.classList.toggle("active",p.dataset.g===g));renderGrid();}
+  function toggleHideSeen(){hideSeen=!hideSeen;document.getElementById("hideSeenBtn").classList.toggle("active",hideSeen);renderGrid();}
+
+  // Détermine la clé de groupe d'une offre selon le mode choisi
+  function groupKeyOf(o){
+    if(gridGroupBy==="secteur"){ return detectSector(o).key; }
+    if(gridGroupBy==="entreprise"){ return o.entreprise||"Non précisé"; }
+    if(gridGroupBy==="lieu"){
+      // extrait le département entre parenthèses si présent, sinon la ville
+      const m=(o.lieu||"").match(/\((\d{2,3})\)/);
+      if(m) return "Dépt "+m[1];
+      return (o.lieu||"Lieu inconnu").split("(")[0].trim()||"Lieu inconnu";
+    }
+    if(gridGroupBy==="date"){
+      if(!o.dateCreation) return "Sans date";
+      const d=new Date(o.dateCreation), now=new Date();
+      const days=Math.floor((now-d)/86400000);
+      if(days<=0) return "Aujourd'hui";
+      if(days<=2) return "Ces 2 jours";
+      if(days<=7) return "Cette semaine";
+      if(days<=30) return "Ce mois-ci";
+      return "Plus ancien";
+    }
+    return "Autre";
+  }
+  // Ordre d'affichage des groupes date (sinon alphabétique/compteur)
+  const DATE_ORDER=["Aujourd'hui","Ces 2 jours","Cette semaine","Ce mois-ci","Plus ancien","Sans date"];
+
+  function renderGrid(){
+    const merged={};allOffers.forEach(o=>merged[o.id]=o);
+    Object.keys(statusMap).forEach(id=>{if(!merged[id]&&statusMap[id].offer)merged[id]=statusMap[id].offer;});
+    let list=Object.values(merged);
+    if(veilleFilter!=="all")list=list.filter(o=>statusMap[o.id]&&statusMap[o.id].statut===veilleFilter);
+    list=list.filter(matchEntreprise);
+    if(hideSeen)list=list.filter(o=>!statusMap[o.id]); // cache les offres déjà triées
+
+    const c=document.getElementById("veille-grid");
+    if(!list.length){c.innerHTML='<div class="empty-cta"><div class="empty-ico">📥</div><div class="empty-h">'+(hideSeen?"Tout est trié !":"Pas encore d\'offres ici")+'</div><div class="empty-p">'+(hideSeen?"Plus rien à trier dans ce filtre.":"Trouve des offres puis garde celles qui te plaisent, ou ajoute un lien directement.")+'</div><div class="empty-actions"><button class="btn" onclick="setView(\'veille\')">🔍 Trouver des offres</button><button class="btn ghost" onclick="openAddLinks()">➕ Ajouter par lien</button></div></div>';return;}
+
+    // Regroupement
+    const groups={};
+    list.forEach(o=>{ const k=groupKeyOf(o); (groups[k]=groups[k]||[]).push(o); });
+    // Ordre des groupes
+    let keys=Object.keys(groups);
+    if(gridGroupBy==="date"){ keys.sort((a,b)=>DATE_ORDER.indexOf(a)-DATE_ORDER.indexOf(b)); }
+    else { keys.sort((a,b)=>groups[b].length-groups[a].length); } // par taille décroissante
+
+    c.innerHTML=keys.map(k=>{
+      const offers=groups[k].slice().sort((a,b)=>matchScore(b)-matchScore(a));
+      const newCount=offers.filter(o=>o.isNew && !statusMap[o.id]).length;
+      const gid="grp-"+k.replace(/[^a-zA-Z0-9]/g,"_");
+      return `<div class="grid-group">
+        <div class="grid-group-head" onclick="document.getElementById('${gid}').classList.toggle('collapsed')">
+          <span class="gg-title">${esc(k)} <span class="gg-count">${offers.length}</span>${newCount?`<span class="gg-new">${newCount} nouv.</span>`:""}</span>
+          <span class="gg-chevron">▾</span>
+        </div>
+        <div class="grid" id="${gid}">${offers.map(gridCard).join("")}</div>
+      </div>`;
+    }).join("");
+  }
+  // ===== TAGS =====
+  function offerOf(id){ return (statusMap[id]&&statusMap[id].offer) || allOffers.find(o=>o.id===id); }
+  function renderTagsInline(o){
+    const tags=o.tags||[];
+    return tags.map(t=>`<span class="tag-chip" onclick="removeTag('${o.id}','${esc(t)}')" title="Cliquer pour retirer">🏷️ ${esc(t)} ✕</span>`).join("")
+      +`<span class="tag-add" onclick="addTag('${o.id}')">+ tag</span>`;
+  }
+  async function persistOffer(o){
+    const cur=statusMap[o.id];
+    if(cur){cur.offer=o;if(sb)await sb.from("job_status").upsert({offer_id:o.id,statut:cur.statut,offer_data:o,updated_at:new Date().toISOString()},{onConflict:"offer_id"});}
+  }
+  async function addTag(id){
+    const o=offerOf(id);if(!o)return;
+    const t=prompt("Nouveau tag (ex: coup de cœur, réseau, salaire flou) :");
+    if(!t)return;
+    o.tags=o.tags||[];if(!o.tags.includes(t.trim()))o.tags.push(t.trim());
+    await persistOffer(o);
+    const el=document.getElementById("tags-"+id);if(el)el.innerHTML=renderTagsInline(o);
+  }
+  async function removeTag(id,t){
+    const o=offerOf(id);if(!o||!o.tags)return;
+    o.tags=o.tags.filter(x=>x!==t);
+    await persistOffer(o);
+    const el=document.getElementById("tags-"+id);if(el)el.innerHTML=renderTagsInline(o);
+  }
+
+  // ===== COMPARATEUR =====
+  let compareIds=[];
+  function toggleCompare(id){
+    const i=compareIds.indexOf(id);
+    if(i>=0)compareIds.splice(i,1);
+    else{ if(compareIds.length>=3){alert("Maximum 3 offres à comparer.");return;} compareIds.push(id); }
+    renderGrid();renderCompareBar();
+  }
+  function renderCompareBar(){
+    let bar=document.getElementById("compareBar");
+    if(!bar){bar=document.createElement("div");bar.id="compareBar";bar.className="compare-bar";document.body.appendChild(bar);}
+    if(!compareIds.length){bar.style.display="none";return;}
+    bar.style.display="flex";
+    bar.innerHTML=`<span>⚖️ ${compareIds.length} offre(s) sélectionnée(s)</span>
+      <button class="btn sm" onclick="openCompare()">Comparer</button>
+      <button class="btn ghost sm" onclick="compareIds=[];renderGrid();renderCompareBar();">Annuler</button>`;
+  }
+  function openCompare(){
+    const offers=compareIds.map(offerOf).filter(Boolean);
+    if(offers.length<2){alert("Sélectionne au moins 2 offres (bouton ⚖️ sur les cartes).");return;}
+    const rows=[
+      ["🎯 Match",o=>matchScore(o)+"/100"],
+      ["🏭 Secteur",o=>detectSector(o).key],
+      ["🏢 Entreprise",o=>o.entreprise||"—"],
+      ["📍 Lieu",o=>o.lieu||"—"],
+      ["📄 Contrat",o=>o.typeContrat||"—"],
+      ["💶 Salaire",o=>o.salaire||"—"],
+      ["🔗 Source",o=>o.source||"—"],
+    ];
+    const box=document.getElementById("modalBox");
+    box.innerHTML=`<div class="modal-head"><h3>⚖️ Comparateur d'offres</h3><button class="x" onclick="closeModal()">✕</button></div>
+      <div class="compare-table-wrap"><table class="compare-table">
+        <tr><th></th>${offers.map(o=>`<th>${esc(o.titre||"—")}</th>`).join("")}</tr>
+        ${rows.map(([l,fn])=>`<tr><td class="ct-label">${l}</td>${offers.map(o=>`<td>${esc(String(fn(o)))}</td>`).join("")}</tr>`).join("")}
+        <tr><td class="ct-label">📋</td>${offers.map(o=>`<td><a href="${esc(o.lien)}" target="_blank" rel="noopener" class="rel-link">voir</a></td>`).join("")}</tr>
+      </table></div>`;
+    document.getElementById("modalBg").classList.add("open");
+  }
+
+  function gridCard(o){
+    const st=statusMap[o.id]?statusMap[o.id].statut:null;
+    const sec=detectSector(o);
+    const oData=esc(JSON.stringify(o));
+    const newBadge=(o.isNew && !st)?'<span class="chip new-chip">✨ NOUVEAU</span>':"";
+    const addBadge=o.dateAjout?'<span class="chip add-chip">➕ '+new Date(o.dateAjout).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})+'</span>':"";
+    return `<div class="card ${st?'s-'+st:''}"><div class="card-bar"></div>
+      <div class="c-meta">${matchBadge(o)}${newBadge}${addBadge}<span class="chip" style="color:${sec.c};border-color:${sec.c}66;">${sec.key}</span>${o.source?`<span class="chip">${esc(o.source)}</span>`:""}</div>
+      <div class="c-title">${esc(o.titre)}</div>
+      <div class="c-sub">${esc(o.entreprise)}</div>
+      <div class="c-meta">${o.lieu?`<span class="chip loc">📍 ${esc(o.lieu)}</span>`:""}${o.typeContrat?`<span class="chip">${esc(o.typeContrat)}</span>`:""}${o.salaire?`<span class="chip">💶 ${esc(o.salaire)}</span>`:""}</div>
+      <div class="c-desc">${esc(o.description)}${o.description&&o.description.length>=300?"…":""}</div>
+      <div class="c-tags" id="tags-${o.id}">${renderTagsInline(o)}</div>
+      <div class="c-actions">
+        <button class="mini ${st==="super"?"a-super":""}" onclick='markOffer(${oData},"super")' title="Coup de cœur">⭐</button>
+        <button class="mini ${st==="apostuler"?"a-apostuler":""}" onclick='markOffer(${oData},"apostuler")' title="À postuler">❤️</button>
+        <button class="mini ${st==="reflexion"?"a-reflexion":""}" onclick='markOffer(${oData},"reflexion")' title="Plus tard">🤔</button>
+        <button class="mini ${st==="postule"?"a-postule":""}" onclick='markOffer(${oData},"postule")' title="Postulé">✅</button>
+        <button class="mini ${st==="ignore"?"a-ignore":""}" onclick='markOffer(${oData},"ignore")' title="Passer">🚫</button>
+        <button class="mini ${compareIds.includes(o.id)?"a-super":""}" onclick='toggleCompare("${o.id}")' title="Comparer">⚖️</button>
+      </div>
+      ${(st==="apostuler"||st==="super")?`<button class="btn sm" style="margin-left:7px;width:calc(100% - 7px);" onclick='markAsApplied(${oData})'>✉️ J'ai postulé → Pipeline</button>`:""}
+      <div class="grid-links" style="padding-left:7px;">
+        <a href="${esc(o.lien)}" target="_blank" rel="noopener">📋 Offre</a>
+        <a href="${companyLinks(o.entreprise).wiki}" target="_blank" rel="noopener">📖 Wiki</a>
+        <a href="${companyLinks(o.entreprise).avis}" target="_blank" rel="noopener">⭐ Avis</a>
+        <a href="${companyLinks(o.entreprise).societe}" target="_blank" rel="noopener">📊 CA</a>
+      </div></div>`;
+  }
+  async function markOffer(o,statut){
+    const cur=statusMap[o.id]?statusMap[o.id].statut:null;
+    const ns=cur===statut?null:statut;
+    if(ns===null){delete statusMap[o.id];if(sb)await sb.from("job_status").delete().eq("offer_id",o.id);}
+    else{statusMap[o.id]={statut:ns,offer:o};if(sb)await sb.from("job_status").upsert({offer_id:o.id,statut:ns,offer_data:o,updated_at:new Date().toISOString()},{onConflict:"offer_id"});}
+    renderVeille();renderCockpit();renderStatsBadges();
+  }
+
+  // ===== AJOUT D'OFFRES PAR LIEN =====
+  let addLinksData=[]; // offres en cours de préparation
+  function openAddLinks(prefillUrl, prefillTitle){
+    const origin=window.location.origin;
+    // Le bookmarklet capture l'URL ET le titre de la page (depuis TON navigateur = pas de blocage)
+    const bookmarklet="javascript:(function(){var t=document.title;var h=document.querySelector('h1');if(h)t=h.innerText||t;window.open('"+origin+"/?addUrl='+encodeURIComponent(location.href)+'&addTitle='+encodeURIComponent(t),'_blank');})();";
+    const box=document.getElementById("modalBox");
+    box.innerHTML=`
+      <div class="modal-head"><h3>➕ Ajouter des offres par lien</h3><button class="x" onclick="closeModal()">✕</button></div>
+      <p class="modal-sub">Colle un ou plusieurs liens d'offres (un par ligne). L'app récupère les infos, tu vérifies, puis tout part dans <b>À postuler</b>.</p>
+      <textarea id="linksInput" class="links-area" rows="5" placeholder="https://www.welcometothejungle.com/fr/companies/.../jobs/...&#10;https://www.apec.fr/candidat/recherche-emploi.../detail-offre/...&#10;https://carrieres.exemple.fr/offre/...">${prefillUrl?esc(prefillUrl):""}</textarea>
+      <div class="modal-actions">
+        <button class="btn" id="fetchLinksBtn" onclick="fetchLinkInfos()">🔎 Récupérer les infos</button>
+        <details class="bookmarklet-help" ${prefillUrl?"":"open"}><summary>🔖 Astuce : ajout en 1 clic depuis le web (recommandé)</summary>
+          <p><b>Pourquoi ?</b> Certains sites (LinkedIn, Indeed) bloquent la récupération automatique. Le bookmarklet capture l'offre depuis <b>ton</b> navigateur, donc ça marche partout.</p>
+          <p><b>Installation (une fois) :</b> affiche ta barre de favoris (Ctrl+Maj+B), puis <b>glisse</b> ce bouton dedans :</p>
+          <a class="bookmarklet-btn" href="${bookmarklet}" onclick="return false;">➕ Sam'Travail</a>
+          <p class="bm-note">Ensuite, sur n'importe quelle offre sur le web → clique ce favori → l'offre s'ouvre ici, prête à ajouter. (Un clic direct ici ne fait rien, c'est normal : il faut le glisser dans les favoris.)</p>
+        </details>
+      </div>
+      <div id="linksPreview"></div>`;
+    document.getElementById("modalBg").classList.add("open");
+    if(prefillUrl){ window._prefillTitle=prefillTitle||""; setTimeout(fetchLinkInfos,300); }
+  }
+
+  async function fetchLinkInfos(){
+    const raw=document.getElementById("linksInput").value||"";
+    const urls=[...new Set(raw.split(/[\n\s]+/).map(s=>s.trim()).filter(s=>/^https?:\/\//i.test(s)))];
+    if(!urls.length){document.getElementById("linksPreview").innerHTML='<div class="empty">Aucun lien valide détecté.</div>';return;}
+    const btn=document.getElementById("fetchLinksBtn");btn.disabled=true;btn.textContent="...";
+    const prev=document.getElementById("linksPreview");
+    prev.innerHTML='<div class="loading"><div class="spinner"></div>Récupération de '+urls.length+' offre(s)…</div>';
+    addLinksData=[];
+    for(const url of urls){
+      let offer={lien:url,source:hostOf(url),titre:"",entreprise:"",lieu:"",typeContrat:"",salaire:"",description:""};
+      let quality="empty";
+      try{
+        const r=await fetch("/api/extract?url="+encodeURIComponent(url));
+        const d=await r.json();
+        if(d.offer)offer={...offer,...d.offer};
+        quality=d.quality||(d.ok?"partial":"empty");
+      }catch(e){}
+      offer.id="manual_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+      offer.dateAjout=new Date().toISOString();
+      // Si l'extraction serveur n'a rien donné mais que le bookmarklet a capturé un titre -> on l'utilise
+      if((!offer.titre || quality==="empty") && window._prefillTitle){
+        offer.titre=window._prefillTitle; if(quality==="empty")quality="partial";
+      }
+      offer._quality=quality;
+      addLinksData.push(offer);
+    }
+    window._prefillTitle="";
+    btn.disabled=false;btn.textContent="🔎 Récupérer les infos";
+    renderLinksPreview();
+  }
+
+  function renderLinksPreview(){
+    const prev=document.getElementById("linksPreview");
+    if(!addLinksData.length){prev.innerHTML="";return;}
+    prev.innerHTML='<div class="preview-head">Vérifie et corrige si besoin :</div>'+addLinksData.map((o,i)=>{
+      const q=o._quality==="full"?'<span class="q-chip q-full">✓ bien récupéré</span>':o._quality==="partial"?'<span class="q-chip q-partial">⚠ partiel</span>':'<span class="q-chip q-empty">✗ à compléter</span>';
+      return `<div class="preview-card">
+        <div class="pc-top">${q}<span class="pc-src">${esc(o.source||"")}</span><button class="pc-del" onclick="removeLink(${i})" title="Retirer">✕</button></div>
+        <input class="pc-in pc-title" placeholder="Titre du poste" value="${esc(o.titre)}" oninput="addLinksData[${i}].titre=this.value" />
+        <div class="pc-row">
+          <input class="pc-in" placeholder="Entreprise" value="${esc(o.entreprise)}" oninput="addLinksData[${i}].entreprise=this.value" />
+          <input class="pc-in" placeholder="Lieu (ville)" value="${esc(o.lieu)}" oninput="addLinksData[${i}].lieu=this.value" />
+        </div>
+        <div class="pc-row">
+          <input class="pc-in" placeholder="Contrat (CDI...)" value="${esc(o.typeContrat)}" oninput="addLinksData[${i}].typeContrat=this.value" />
+          <input class="pc-in" placeholder="Salaire" value="${esc(o.salaire)}" oninput="addLinksData[${i}].salaire=this.value" />
+        </div>
+        <a class="pc-link" href="${esc(o.lien)}" target="_blank" rel="noopener">🔗 voir l'offre</a>
+      </div>`;
+    }).join("")+`<button class="btn btn-validate" onclick="validateAddLinks()">✅ Ajouter ${addLinksData.length} offre(s) à « À postuler »</button>`;
+  }
+
+  function removeLink(i){addLinksData.splice(i,1);renderLinksPreview();}
+
+  async function validateAddLinks(){
+    const valid=addLinksData.filter(o=>(o.titre||"").trim()||(o.entreprise||"").trim());
+    if(!valid.length){alert("Renseigne au moins un titre ou une entreprise.");return;}
+    for(const o of valid){
+      delete o._quality;
+      if(!o.titre)o.titre="(sans titre)";
+      statusMap[o.id]={statut:"apostuler",offer:o};
+      if(sb)await sb.from("job_status").upsert({offer_id:o.id,statut:"apostuler",offer_data:o,updated_at:new Date().toISOString()},{onConflict:"offer_id"});
+      // marque comme "vue" pour ne pas la re-signaler nouvelle
+      seenOffers[o.id]=true;
+      if(sb){try{sb.from("seen_offers").upsert([{offer_id:o.id}],{onConflict:"offer_id"});}catch(e){}}
+    }
+    closeModal();
+    setView("offres");setVeilleFilter("apostuler");
+    renderVeille();renderCockpit();renderStatsBadges();
+  }
+  function hostOf(u){try{return new URL(u).hostname.replace(/^www\./,"");}catch(e){return "lien";}}
+
+  // Appelé quand tu cliques "J'ai postulé" depuis la liste à postuler -> crée l'entrée Pipeline
+  async function markAsApplied(o){
+    if(typeof o==="string"){try{o=JSON.parse(o);}catch(e){return;}}
+    if(pipeline.some(p=>p.lien_offre===o.lien)){alert("Déjà dans ton pipeline.");return;}
+    const priority=statusMap[o.id]&&statusMap[o.id].statut==="super";
+    const row={entreprise:o.entreprise,poste:o.titre,ville:o.lieu,source:o.source||"France Travail",lien_offre:o.lien,statut:"Envoyé",niveau_envie:priority?5:3,date_envoi:new Date().toISOString().slice(0,10)};
+    if(sb){const {data}=await sb.from("pipeline").insert(row).select();if(data)pipeline.unshift(data[0]);}
+    else{row.id="local-"+Date.now();pipeline.unshift(row);}
+    // on marque l'offre comme "postulé" dans la veille
+    statusMap[o.id]={statut:"postule",offer:o};
+    if(sb)await sb.from("job_status").upsert({offer_id:o.id,statut:"postule",offer_data:o,updated_at:new Date().toISOString()},{onConflict:"offer_id"});
+    renderPipeline();renderVeille();renderCockpit();
+    alert("✅ Ajouté au Pipeline (statut Envoyé) !");
+  }
+  // ===== PIPELINE KANBAN =====
+  const KCOLS=[
+    {key:"Envoyé",cls:"envoye",label:"📤 Envoyé"},
+    {key:"Entretien",cls:"entretien",label:"🎤 Entretien"},
+    {key:"Offre reçue",cls:"offre",label:"🎉 Offre"},
+    {key:"Refusé",cls:"refuse",label:"❌ Refusé"},
+    {key:"Non intéressé",cls:"relance",label:"💤 Pas pour moi"},
+  ];
+  // ===== RELANCES groupées par campagne (vague) =====
+  const RELANCE_DELAI=10; // jours après envoi (ou dernière relance) avant de relancer
+  function relanceDue(p){
+    if(p.statut!=="Envoyé") return false;
+    const ref=p.date_relance||p.date_envoi;
+    if(!ref) return false;
+    const d=Math.round((Date.now()-new Date(ref))/86400000);
+    return d>=RELANCE_DELAI;
+  }
+  function weekLabel(dateStr){
+    const d=new Date(dateStr);
+    const day=d.getDay()||7; const monday=new Date(d); monday.setDate(d.getDate()-day+1);
+    const sunday=new Date(monday); sunday.setDate(monday.getDate()+6);
+    const f=(x)=>x.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"});
+    return "Semaine du "+f(monday)+" au "+f(sunday);
+  }
+  function renderRelances(){
+    const panel=document.getElementById("relances-panel");
+    if(!panel) return;
+    const due=pipeline.filter(relanceDue);
+    if(!due.length){ panel.innerHTML=""; return; }
+    // groupe par vague = semaine d'envoi
+    const waves={};
+    due.forEach(p=>{ const k=weekLabel(p.date_envoi); (waves[k]=waves[k]||[]).push(p); });
+    const keys=Object.keys(waves).sort((a,b)=>new Date(waves[a][0].date_envoi)-new Date(waves[b][0].date_envoi));
+    panel.innerHTML=`<div class="relances-box">
+      <div class="relances-head">🔔 ${due.length} candidature(s) à relancer <span class="rel-sub">groupées par vague d'envoi</span></div>
+      ${keys.map(k=>{
+        const items=waves[k];
+        const ids=items.map(p=>p.id).join(",");
+        return `<div class="rel-wave">
+          <div class="rel-wave-head">
+            <span class="rel-wave-title">${esc(k)} · ${items.length}</span>
+            <button class="btn sm" onclick="relancerVague('${ids}')">✅ Tout marquer relancé</button>
+          </div>
+          ${items.map(p=>{
+            const d=Math.round((Date.now()-new Date(p.date_relance||p.date_envoi))/86400000);
+            return `<div class="rel-item">
+              <span class="rel-item-info"><b>${esc(p.entreprise||"—")}</b> · ${esc(p.poste||"")} <span class="rel-days">J+${d}</span></span>
+              <span class="rel-item-actions">
+                ${p.lien_offre?`<a href="${esc(p.lien_offre)}" target="_blank" rel="noopener" class="rel-link">offre</a>`:""}
+                <button class="rel-done" onclick="relancerUn('${p.id}')" title="Marquer relancé">✅</button>
+              </span>
+            </div>`;
+          }).join("")}
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+  async function relancerUn(id){
+    const p=pipeline.find(x=>String(x.id)===String(id));
+    if(!p)return;
+    const today=new Date().toISOString().slice(0,10);
+    p.date_relance=today;
+    if(sb)await sb.from("pipeline").update({date_relance:today}).eq("id",p.id);
+    renderRelances();renderCockpit();
+  }
+  async function relancerVague(ids){
+    const list=ids.split(",");
+    const today=new Date().toISOString().slice(0,10);
+    for(const id of list){
+      const p=pipeline.find(x=>String(x.id)===String(id));
+      if(p){p.date_relance=today;if(sb)await sb.from("pipeline").update({date_relance:today}).eq("id",p.id);}
+    }
+    renderRelances();renderCockpit();
+  }
+
+  function renderPipeline(){
+    renderRelances();
+    const c=document.getElementById("pipeline-content");
+    if(!pipeline.length){c.innerHTML='<div class="empty-cta"><div class="empty-ico">📋</div><div class="empty-h">Aucune candidature suivie</div><div class="empty-p">Quand tu postules à une offre gardée, elle arrive ici. Tu suis alors les relances, entretiens et réponses.</div><div class="empty-actions"><button class="btn" onclick="setView(\'offres\')">Voir mes offres</button></div></div>';renderStatsBadges();return;}
+    c.innerHTML='<div class="kanban">'+KCOLS.map(col=>{
+      const items=pipeline.filter(p=>p.statut===col.key);
+      return `<div class="kcol ${col.cls}" data-col="${col.key}" ondragover="kDragOver(event)" ondragleave="kDragLeave(event)" ondrop="kDrop(event,'${col.key}')">
+        <div class="kcol-head"><span>${col.label}</span><span class="kn">${items.length}</span></div>
+        ${items.map(kCard).join("")}
+      </div>`;
+    }).join("")+'</div>';
+    renderStatsBadges();
+  }
+  function kCard(p){
+    const days=p.date_envoi?Math.round((Date.now()-new Date(p.date_envoi))/86400000):null;
+    const warn=days!==null&&days>10&&p.statut==="Envoyé";
+    const star=p.niveau_envie>=5?"⭐ ":"";
+    const chk=p.checklist||{};const done=Object.keys(chk).filter(k=>chk[k]).length;
+    const chkBar=done?`<div class="kchk">✅ ${done}/${CHECKLIST_ITEMS.length}</div>`:"";
+    return `<div class="kcard" draggable="true" ondragstart="kDragStart(event,'${p.id}')" ondragend="kDragEnd(event)" onclick='openModal("pipeline",${esc(JSON.stringify(p))})'>
+      <div class="kt">${star}${esc(p.poste||"—")}</div>
+      <div class="kc">${esc(p.entreprise)}</div>
+      <div class="km">${p.ville?`<span class="chip loc">📍 ${esc(p.ville)}</span>`:""}${chkBar}</div>
+      ${days!==null?`<div class="kdays ${warn?"warn":""}">${warn?"⚠️ à relancer · ":""}${days} j</div>`:""}
+    </div>`;
+  }
+  let dragId=null;
+  function kDragStart(e,id){dragId=id;e.target.classList.add("dragging");e.stopPropagation();}
+  function kDragEnd(e){e.target.classList.remove("dragging");document.querySelectorAll(".kcol").forEach(c=>c.classList.remove("drop-hover"));}
+  function kDragOver(e){e.preventDefault();e.currentTarget.classList.add("drop-hover");}
+  function kDragLeave(e){e.currentTarget.classList.remove("drop-hover");}
+  async function kDrop(e,col){
+    e.preventDefault();e.currentTarget.classList.remove("drop-hover");
+    const p=pipeline.find(x=>x.id===dragId);if(!p||p.statut===col)return;
+    p.statut=col;
+    const patch={statut:col};
+    if(col!=="Envoyé"&&!p.date_reponse){patch.date_reponse=new Date().toISOString().slice(0,10);p.date_reponse=patch.date_reponse;}
+    if(sb)await sb.from("pipeline").update(patch).eq("id",dragId);
+    renderPipeline();renderCockpit();
+  }
+
+  // ===== REVE =====
+  function renderReve(){
+    const c=document.getElementById("reve-content");
+    if(!reve.length){c.innerHTML='<div class="empty">Aucune entreprise. Ajoutes-en une !</div>';return;}
+    const order={Haute:0,Moyenne:1,Basse:2};
+    const sorted=reve.slice().sort((a,b)=>(order[a.priorite]??9)-(order[b.priorite]??9));
+    c.innerHTML='<div class="grid">'+sorted.map(e=>{
+      const col=e.priorite==="Haute"?"var(--orange)":e.priorite==="Moyenne"?"var(--cyan)":"var(--text-mute)";
+      return `<div class="card"><div class="card-bar" style="background:${col}"></div>
+        <div class="c-title">${esc(e.entreprise)}</div>
+        <div class="c-sub">${esc(e.secteur||"")}</div>
+        <div class="c-meta">${e.ville?`<span class="chip loc">📍 ${esc(e.ville)}</span>`:""}<span class="chip" style="color:${col};border-color:${col}66;">${esc(e.priorite)}</span><span class="chip">${esc(e.statut)}</span></div>
+        ${e.pourquoi?`<div class="c-desc">${esc(e.pourquoi)}</div>`:""}
+        <div class="c-actions">
+          <a class="c-link" style="flex:1;margin-left:7px;" href="${companyWebsite(e.entreprise)}" target="_blank">🏢 Site</a>
+          <button class="btn ghost sm" onclick='openModal("reve",${esc(JSON.stringify(e))})'>Éditer</button>
+          <button class="btn danger sm" onclick="delRow('entreprises_reve','${e.id}')">✕</button>
+        </div></div>`;
+    }).join("")+'</div>';
+  }
+
+  // ===== RESEAU =====
+  function renderReseau(){
+    const c=document.getElementById("reseau-content");
+    if(!reseau.length){c.innerHTML='<div class="empty">Aucun contact.</div>';return;}
+    c.innerHTML='<div class="grid">'+reseau.map(r=>`<div class="card"><div class="card-bar" style="background:var(--cyan)"></div>
+      <div class="c-title">${esc(r.prenom||"")} ${esc(r.nom||"")}</div>
+      <div class="c-sub">${esc(r.entreprise||"")}${r.poste?" · "+esc(r.poste):""}</div>
+      <div class="c-meta"><span class="chip">${esc(r.statut)}</span>${r.dernier_contact?`<span class="chip">${new Date(r.dernier_contact).toLocaleDateString("fr-FR")}</span>`:""}</div>
+      ${r.notes?`<div class="c-desc">${esc(r.notes)}</div>`:""}
+      <div class="c-actions">${r.lien_linkedin?`<a class="c-link" style="flex:1;margin-left:7px;" href="${esc(r.lien_linkedin)}" target="_blank">LinkedIn</a>`:""}<button class="btn ghost sm" onclick='openModal("reseau",${esc(JSON.stringify(r))})'>Éditer</button><button class="btn danger sm" onclick="delRow('reseau','${r.id}')">✕</button></div></div>`).join("")+'</div>';
+  }
+
+  // ===== ENTRETIENS =====
+  function renderEntretiens(){
+    const c=document.getElementById("entretiens-content");
+    if(!entretiens.length){c.innerHTML='<div class="empty">Aucun entretien planifié.</div>';return;}
+    const now=new Date();now.setHours(0,0,0,0);
+    c.innerHTML='<div class="grid">'+entretiens.map(en=>{
+      const dt=en.date_entretien?new Date(en.date_entretien):null,past=dt&&dt<now;
+      return `<div class="card"><div class="card-bar" style="background:${past?"var(--text-mute)":"var(--purple)"}"></div>
+      <div class="c-title">${esc(en.poste||"—")}</div><div class="c-sub">${esc(en.entreprise)}</div>
+      <div class="c-meta">${dt?`<span class="chip ${past?"":"haute"}">📅 ${dt.toLocaleDateString("fr-FR")}</span>`:""}${en.type_entretien?`<span class="chip">${esc(en.type_entretien)}</span>`:""}${en.personnes?`<span class="chip">${esc(en.personnes)}</span>`:""}</div>
+      ${en.questions?`<div class="c-desc"><b>Questions :</b> ${esc(en.questions)}</div>`:""}
+      ${en.points_forts?`<div class="c-desc"><b>Mes atouts :</b> ${esc(en.points_forts)}</div>`:""}
+      <div class="c-actions"><button class="btn ghost sm" style="flex:1" onclick='openModal("entretiens",${esc(JSON.stringify(en))})'>Éditer</button><button class="btn danger sm" onclick="delRow('entretiens','${en.id}')">✕</button></div></div>`;
+    }).join("")+'</div>';
+  }
+
+  // ===== BADGES nav =====
+  function renderStatsBadges(){
+    document.getElementById("nb-pipeline").textContent=pipeline.length;
+    document.getElementById("nb-reve").textContent=reve.length;
+    document.getElementById("nb-reseau").textContent=reseau.length;
+    document.getElementById("nb-entretiens").textContent=entretiens.length;
+  }
+
+  // ===== NOTES libres (persistées dans Supabase via table job_status clé spéciale) =====
+  let noteTimers={};
+  async function saveNote(key){
+    const val=document.getElementById("notes-"+key).value;
+    clearTimeout(noteTimers[key]);
+    noteTimers[key]=setTimeout(async()=>{
+      if(sb)await sb.from("job_status").upsert({offer_id:"__note_"+key,statut:"note",offer_data:{text:val},updated_at:new Date().toISOString()},{onConflict:"offer_id"});
+      const s=document.getElementById("saved-"+key);if(s){s.textContent="✓ enregistré";setTimeout(()=>s.textContent="",1500);}
+    },700);
+  }
+  function loadNotes(){
+    ["pipeline","reve"].forEach(key=>{
+      const rec=statusMap["__note_"+key];
+      const el=document.getElementById("notes-"+key);
+      if(el&&rec&&rec.offer&&rec.offer.text)el.value=rec.offer.text;
+    });
+  }
+
+  // ===== MODAL =====
+  const FORMS={
+    pipeline:{title:"Candidature",table:"pipeline",fields:[
+      {k:"entreprise",l:"Entreprise",t:"text"},{k:"poste",l:"Poste",t:"text"},{k:"ville",l:"Ville",t:"text"},
+      {k:"secteur",l:"Secteur",t:"text"},{k:"source",l:"Source",t:"text"},{k:"lien_offre",l:"Lien offre",t:"text"},
+      {k:"statut",l:"Statut",t:"select",opts:["Envoyé","Entretien","Offre reçue","Refusé","Non intéressé"]},
+      {k:"niveau_envie",l:"Niveau d'envie (1-5)",t:"number"},{k:"contact",l:"Contact",t:"text"},
+      {k:"date_envoi",l:"Date d'envoi",t:"date"},{k:"date_relance",l:"Dernière relance",t:"date"},{k:"notes",l:"Notes",t:"textarea"},
+    ]},
+    reve:{title:"Entreprise rêve",table:"entreprises_reve",fields:[
+      {k:"entreprise",l:"Entreprise",t:"text"},{k:"secteur",l:"Secteur",t:"text"},
+      {k:"priorite",l:"Priorité",t:"select",opts:["Haute","Moyenne","Basse"]},{k:"ville",l:"Ville visée",t:"text"},
+      {k:"statut",l:"Statut",t:"select",opts:["À explorer","À postuler","Postulé"]},
+      {k:"source_info",l:"Source d'info",t:"text"},{k:"pourquoi",l:"Pourquoi cette boîte",t:"textarea"},{k:"notes",l:"Notes",t:"textarea"},
+    ]},
+    reseau:{title:"Contact",table:"reseau",fields:[
+      {k:"prenom",l:"Prénom",t:"text"},{k:"nom",l:"Nom",t:"text"},{k:"entreprise",l:"Entreprise",t:"text"},
+      {k:"poste",l:"Poste",t:"text"},{k:"lien_linkedin",l:"Lien LinkedIn",t:"text"},
+      {k:"statut",l:"Statut",t:"select",opts:["À contacter","Message envoyé","Échange en cours","À recontacter"]},
+      {k:"dernier_contact",l:"Dernier contact",t:"date"},{k:"notes",l:"Notes / Historique",t:"textarea"},
+    ]},
+    entretiens:{title:"Entretien",table:"entretiens",fields:[
+      {k:"entreprise",l:"Entreprise",t:"text"},{k:"poste",l:"Poste",t:"text"},{k:"date_entretien",l:"Date",t:"date"},
+      {k:"personnes",l:"Personnes (RH/Manager/DG)",t:"text"},{k:"type_entretien",l:"Type",t:"select",opts:["Téléphone","Visio","Présentiel"]},
+      {k:"questions",l:"Questions probables",t:"textarea"},{k:"points_forts",l:"Mes atouts à mettre en avant",t:"textarea"},{k:"notes",l:"Notes",t:"textarea"},
+    ]},
+  };
+  const CHECKLIST_ITEMS=["CV adapté","Lettre / message perso","Candidature envoyée","Relance prévue","Contact identifié sur LinkedIn"];
+  let editing=null;
+  function openModal(type,row){
+    if(typeof row==="string"){try{row=JSON.parse(row);}catch(e){row=null;}}
+    const f=FORMS[type];editing={type,id:row?row.id:null};
+    const box=document.getElementById("modalBox");
+    let html=`<h3>${row?"Éditer":"Ajouter"} — ${f.title}</h3>`+f.fields.map(fl=>{
+      const v=row?(row[fl.k]??""):"";
+      if(fl.t==="select")return `<div class="field"><label>${fl.l}</label><select id="m-${fl.k}">${fl.opts.map(o=>`<option ${o===v?"selected":""}>${o}</option>`).join("")}</select></div>`;
+      if(fl.t==="textarea")return `<div class="field"><label>${fl.l}</label><textarea id="m-${fl.k}">${esc(v)}</textarea></div>`;
+      return `<div class="field"><label>${fl.l}</label><input id="m-${fl.k}" type="${fl.t}" value="${esc(v)}" /></div>`;
+    }).join("");
+    // Checklist (pipeline uniquement)
+    if(type==="pipeline"){
+      const chk=(row&&row.checklist)||{};
+      html+=`<div class="field"><label>✅ Checklist de candidature</label><div class="modal-checklist">`+
+        CHECKLIST_ITEMS.map((it,i)=>`<label class="chk-item"><input type="checkbox" id="chk-${i}" ${chk[it]?"checked":""} /> ${esc(it)}</label>`).join("")+
+        `</div></div>`;
+    }
+    html+=`<div class="modal-actions">${editing.id?`<button class="btn danger" onclick="delFromModal()">Supprimer</button>`:""}<button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn" onclick="saveModal()">Enregistrer</button></div>`;
+    box.innerHTML=html;
+    document.getElementById("modalBg").classList.add("open");
+  }
+  function closeModal(){document.getElementById("modalBg").classList.remove("open");editing=null;}
+  async function saveModal(){
+    const f=FORMS[editing.type],obj={};
+    f.fields.forEach(fl=>{const el=document.getElementById("m-"+fl.k);let val=el.value;if(fl.t==="number")val=val?parseInt(val):null;if(val==="")val=null;obj[fl.k]=val;});
+    if(editing.type==="pipeline"){
+      const chk={};CHECKLIST_ITEMS.forEach((it,i)=>{const el=document.getElementById("chk-"+i);if(el&&el.checked)chk[it]=true;});
+      obj.checklist=chk;
+    }
+    if(sb){if(editing.id)await sb.from(f.table).update(obj).eq("id",editing.id);else await sb.from(f.table).insert(obj);}
+    await loadAll();refreshAll();closeModal();
+  }
+  async function delFromModal(){if(editing&&editing.id){await delRow(FORMS[editing.type].table,editing.id,true);closeModal();}}
+  async function delRow(table,id,skipConfirm){
+    if(!skipConfirm&&!confirm("Supprimer ?"))return;
+    if(sb)await sb.from(table).delete().eq("id",id);
+    await loadAll();refreshAll();
+  }
+  document.getElementById("modalBg").addEventListener("click",e=>{if(e.target.id==="modalBg")closeModal();});
+
+  // ===== REFRESH =====
+  // ===== BILAN (stats + funnel campagnes) =====
+  function renderBilan(){
+    const c=document.getElementById("bilan-content");if(!c)return;
+    const totalSaved=Object.values(statusMap).filter(s=>s.statut&&s.statut!=="passe").length;
+    const envoyees=pipeline.length;
+    if(!envoyees && !totalSaved){
+      c.innerHTML='<div class="empty-cta"><div class="empty-ico">📊</div><div class="empty-h">Ton bilan se construit ici</div><div class="empty-p">Dès que tu gardes des offres et que tu postules, tu verras tes chiffres : taux de réponse, entretiens décrochés, et l\'avancement de tes campagnes.</div><div class="empty-actions"><button class="btn" onclick="setView(\'veille\')">Commencer</button></div></div>';
+      return;
+    }
+    const entretiens_=pipeline.filter(p=>p.statut==="Entretien").length;
+    const offres_=pipeline.filter(p=>p.statut==="Offre reçue").length;
+    const refus=pipeline.filter(p=>p.statut==="Refusé").length;
+    const reponses=pipeline.filter(p=>p.statut==="Entretien"||p.statut==="Offre reçue"||p.statut==="Refusé"||p.date_reponse).length;
+    const tauxRep=envoyees?Math.round(reponses/envoyees*100):0;
+    const tauxEnt=envoyees?Math.round(entretiens_/envoyees*100):0;
+    // temps moyen de réponse (jours) pour celles qui ont une date_reponse
+    const withResp=pipeline.filter(p=>p.date_reponse&&p.date_envoi);
+    let tempsMoyen="—";
+    if(withResp.length){const sum=withResp.reduce((a,p)=>a+Math.round((new Date(p.date_reponse)-new Date(p.date_envoi))/86400000),0);tempsMoyen=Math.round(sum/withResp.length)+" j";}
+    // répartition par secteur (offres gardées)
+    const bySector={};
+    Object.values(statusMap).forEach(s=>{if(s.offer&&s.statut!=="passe"){const k=detectSector(s.offer).key;bySector[k]=(bySector[k]||0)+1;}});
+    const secEntries=Object.entries(bySector).sort((a,b)=>b[1]-a[1]);
+    const maxSec=Math.max(1,...secEntries.map(e=>e[1]));
+
+    // Funnel des phases (campagne)
+    const aTrier=swipeQueue.length;
+    const funnel=[
+      {l:"🔍 À trier",n:aTrier,c:"var(--accent)"},
+      {l:"📥 Gardées",n:totalSaved,c:"var(--purple)"},
+      {l:"📤 Envoyées",n:envoyees,c:"var(--cyan)"},
+      {l:"🎤 Entretiens",n:entretiens_,c:"var(--gold)"},
+      {l:"🎉 Offres",n:offres_,c:"var(--green)"},
+    ];
+    const maxF=Math.max(1,...funnel.map(f=>f.n));
+
+    c.innerHTML=`
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-n">${envoyees}</div><div class="stat-l">candidatures envoyées</div></div>
+        <div class="stat-card"><div class="stat-n">${tauxRep}%</div><div class="stat-l">taux de réponse</div></div>
+        <div class="stat-card"><div class="stat-n">${tauxEnt}%</div><div class="stat-l">taux d'entretien</div></div>
+        <div class="stat-card"><div class="stat-n">${tempsMoyen}</div><div class="stat-l">délai moyen de réponse</div></div>
+        <div class="stat-card"><div class="stat-n">${entretiens_}</div><div class="stat-l">entretiens décrochés</div></div>
+        <div class="stat-card"><div class="stat-n">${offres_}</div><div class="stat-l">offres reçues 🎉</div></div>
+      </div>
+
+      <div class="bilan-block">
+        <h3 class="bilan-h">🚀 Entonnoir de mes campagnes</h3>
+        <div class="funnel">
+          ${funnel.map(f=>`<div class="funnel-row">
+            <span class="funnel-l">${f.l}</span>
+            <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${Math.max(6,f.n/maxF*100)}%;background:${f.c};">${f.n}</div></div>
+          </div>`).join("")}
+        </div>
+        <p class="bilan-note">De gauche à droite : où en sont tes offres dans le parcours recherche → candidature → entretien → offre.</p>
+      </div>
+
+      <div class="bilan-block">
+        <h3 class="bilan-h">🏭 Répartition par secteur</h3>
+        ${secEntries.length?`<div class="funnel">${secEntries.map(([k,n])=>{const col=(SECTORS.find(s=>s.key===k)||{}).c||"#9aa2b4";return `<div class="funnel-row"><span class="funnel-l">${esc(k)}</span><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${Math.max(6,n/maxSec*100)}%;background:${col};">${n}</div></div></div>`;}).join("")}</div>`:'<div class="empty">Pas encore d\'offres gardées.</div>'}
+      </div>
+
+      ${refus?`<p class="bilan-note">📊 ${refus} refus — c'est normal, ça fait partie du jeu. Concentre-toi sur le taux d'entretien.</p>`:""}
+    `;
+  }
+
+  function exportCSV(){
+    if(!pipeline.length){alert("Aucune candidature à exporter.");return;}
+    const cols=["entreprise","poste","ville","statut","source","date_envoi","date_relance","date_reponse","niveau_envie","lien_offre","notes"];
+    const head=cols.join(";");
+    const esc2=(v)=>{v=(v==null?"":String(v)).replace(/"/g,'""');return /[";\n]/.test(v)?'"'+v+'"':v;};
+    const rows=pipeline.map(p=>cols.map(k=>esc2(p[k])).join(";"));
+    const csv="\ufeff"+head+"\n"+rows.join("\n"); // BOM pour Excel FR
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="samtravail_pipeline_"+new Date().toISOString().slice(0,10)+".csv";
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  }
+
+  function refreshAll(){renderStatsBadges();renderPipeline();renderReve();renderReseau();renderEntretiens();renderVeille();renderCockpit();renderBilan();}
+
+  // ===== INIT =====
+  if(!sbReady){document.getElementById("setupZone").innerHTML='<div class="setup-box">⚙️ <b>Config Supabase manquante.</b> Remplace <code>TON_SUPABASE_URL</code> et <code>TON_SUPABASE_ANON_KEY</code> dans le code. Sans ça, rien ne se sauvegarde (mais tu peux tester la recherche).</div>';}
+  let userName="";
+  // ===== THÈME clair / sombre =====
+  let theme="light";
+  function applyTheme(){
+    if(theme==="dark") document.documentElement.setAttribute("data-theme","dark");
+    else document.documentElement.removeAttribute("data-theme");
+    const btn=document.getElementById("themeToggle");if(btn)btn.textContent=theme==="dark"?"🌙":"☀️";
+  }
+  async function toggleTheme(){
+    theme=theme==="dark"?"light":"dark";
+    applyTheme();
+    if(sb){try{await sb.from("parametres").upsert({cle:"theme",valeur:{mode:theme},updated_at:new Date().toISOString()},{onConflict:"cle"});}catch(e){}}
+  }
+  async function loadTheme(){
+    if(sb){try{const {data}=await sb.from("parametres").select("valeur").eq("cle","theme").maybeSingle();if(data&&data.valeur&&data.valeur.mode)theme=data.valeur.mode;}catch(e){}}
+    applyTheme();
+  }
+  function initDate(){
+    const d=new Date();
+    document.getElementById("today").textContent=d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+    const h=d.getHours();
+    const nom=userName?(" "+userName):"";
+    document.getElementById("greet").textContent=(h<12?"Bonjour":h<18?"Bon après-midi":"Bonsoir")+nom+" 👋";
+  }
+  async function loadProfil(){
+    if(sb){try{const {data}=await sb.from("parametres").select("valeur").eq("cle","profil").maybeSingle();if(data&&data.valeur&&data.valeur.prenom)userName=data.valeur.prenom;}catch(e){}}
+    if(!userName){ askName(); }
+    else initDate();
+  }
+  function askName(){
+    const box=document.getElementById("modalBox");
+    box.innerHTML=`
+      <div class="modal-head"><h3>👋 Bienvenue</h3></div>
+      <p class="modal-sub">Ton espace pour piloter ta recherche d'emploi : trouve des offres, trie-les d'un swipe, et garde l'œil sur où tu en es. Comment tu t'appelles ?</p>
+      <input class="crit-in" id="nameInput" placeholder="Ton prénom" onkeydown="if(event.key==='Enter')saveName()" autofocus />
+      <button class="btn btn-validate" style="margin-top:14px;" onclick="saveName()">C'est parti →</button>`;
+    document.getElementById("modalBg").classList.add("open");
+    setTimeout(()=>{const el=document.getElementById("nameInput");if(el)el.focus();},100);
+  }
+  async function saveName(){
+    const v=(document.getElementById("nameInput").value||"").trim();
+    userName=v||"";
+    if(sb){try{await sb.from("parametres").upsert({cle:"profil",valeur:{prenom:userName},updated_at:new Date().toISOString()},{onConflict:"cle"});}catch(e){}}
+    closeModal();initDate();
+  }
+
+  // ===== STREAK (visite quotidienne) =====
+  let streakData={count:0,last:null,best:0};
+  async function loadStreak(){
+    if(sb){
+      try{ const {data}=await sb.from("parametres").select("valeur").eq("cle","streak").maybeSingle();
+        if(data&&data.valeur) streakData={...streakData,...data.valeur}; }catch(e){}
+    }
+    const today=new Date().toISOString().slice(0,10);
+    if(streakData.last!==today){
+      const y=new Date();y.setDate(y.getDate()-1);const yest=y.toISOString().slice(0,10);
+      if(streakData.last===yest) streakData.count++;        // visite consécutive
+      else streakData.count=1;                               // reset (gap ou 1ère fois)
+      streakData.last=today;
+      if(streakData.count>(streakData.best||0)) streakData.best=streakData.count;
+      if(sb){try{await sb.from("parametres").upsert({cle:"streak",valeur:streakData,updated_at:new Date().toISOString()},{onConflict:"cle"});}catch(e){}}
+    }
+    renderStreak();
+  }
+  function renderStreak(){
+    const el=document.getElementById("streakBadge");if(!el)return;
+    const n=streakData.count||0;
+    if(n<1){el.style.display="none";return;}
+    const fire=n>=30?"🔥🔥🔥":n>=7?"🔥🔥":"🔥";
+    const msg=n>=30?"En feu !":n>=7?"Belle régularité":n>=3?"Ça tient !":"C'est parti";
+    el.style.display="inline-flex";
+    el.innerHTML=fire+' <b>'+n+' jour'+(n>1?"s":"")+'</b> de suite · '+msg+(streakData.best>n?' <span class="streak-best">record '+streakData.best+'</span>':"");
+  }
+  (async function init(){
+    initDate();renderRoadmap();
+    await loadAll();loadNotes();loadStreak();loadTheme();loadProfil();refreshAll();
+    // Bookmarklet : si ?addUrl=... -> ouvre directement l'ajout par lien
+    const params=new URLSearchParams(window.location.search);
+    const addUrl=params.get("addUrl");
+    if(addUrl){
+      openAddLinks(addUrl, params.get("addTitle")||"");
+      history.replaceState({},"",window.location.pathname);
+    }else{
+      doSearch();
+    }
+  })();
+</script>
+</body>
+</html>
